@@ -32,15 +32,13 @@
   .rail{position:fixed;top:50%;right:18px;transform:translateY(-50%);z-index:20;
      display:flex;flex-direction:column;gap:17px;align-items:flex-end}
   .rail a{display:flex;align-items:center;gap:9px;justify-content:flex-end;
-     transition:.35s cubic-bezier(.2,.7,.2,1);transform-origin:right center}
+     transition:transform .22s linear;transform-origin:right center}
   .rail a .txt{display:flex;align-items:baseline;gap:7px;max-width:0;opacity:0;overflow:hidden;
-     transition:.35s cubic-bezier(.2,.7,.2,1);white-space:nowrap}
+     transition:max-width .22s linear,opacity .22s linear;white-space:nowrap}
   .rail a .lb{font-size:14px;font-weight:800;letter-spacing:1px;color:var(--accent)}
   .rail a .dp{font-size:11px;color:var(--dim)}
-  .rail a .dot{width:7px;height:7px;border-radius:50%;background:rgba(233,251,255,.4);flex:0 0 auto;transition:.35s}
-  .rail a.on{transform:scale(1.15)}
-  .rail a.on .txt{max-width:160px;opacity:1}
-  .rail a.on .dot{width:9px;height:9px;background:var(--accent);box-shadow:0 0 14px var(--accent)}
+  .rail a .dot{width:8px;height:8px;border-radius:50%;background:rgba(233,251,255,.35);flex:0 0 auto;
+     transition:background .22s linear,box-shadow .22s linear}
 
   /* Hero */
   .hero{height:100vh;min-height:560px;display:flex;flex-direction:column;justify-content:center;position:relative}
@@ -109,11 +107,21 @@
   /* 地圖 */
   .mtitle{font-family:monospace;font-size:12px;color:var(--accent);margin:14px 0 8px;letter-spacing:1px}
   #map{height:460px;border-radius:14px;overflow:hidden;border:1px solid var(--edge);z-index:2}
-  .leaflet-popup-content-wrapper{border-radius:12px}
-  .pop{color:#0a1f2b;min-width:210px}.pop h4{font-size:16px;margin-bottom:2px}
-  .pop .pl{font-size:12px;color:#5c7688;margin-bottom:7px}
-  .pop .tag{display:inline-block;background:#e7fbf9;color:#0a5c7a;border-radius:99px;padding:1px 9px;font-size:11px;font-weight:700;margin:0 4px 6px 0}
-  .pop p{font-size:12.5px;line-height:1.6;margin:4px 0;color:#26414f}.pop b{color:#0a5c7a}
+  #map{background:#04202c}
+  .leaflet-popup-content-wrapper{background:rgba(4,26,36,.82);backdrop-filter:blur(8px);
+     border:1px solid var(--edge);border-radius:14px;box-shadow:0 16px 44px -16px rgba(0,0,0,.7)}
+  .leaflet-popup-tip{background:rgba(4,26,36,.82)}
+  .leaflet-popup-close-button{color:var(--dim)!important}
+  .pop{color:var(--ink);min-width:214px}.pop h4{font-size:16px;margin-bottom:2px;color:#fff}
+  .pop .pl{font-size:12px;color:var(--dim);margin-bottom:7px}
+  .pop .tag{display:inline-block;background:rgba(47,243,224,.12);color:var(--accent);border:1px solid var(--edge);
+     border-radius:99px;padding:1px 9px;font-size:11px;font-weight:700;margin:0 4px 6px 0}
+  .pop p{font-size:12.5px;line-height:1.6;margin:4px 0;color:#cfe4ea}.pop b{color:var(--accent)}
+  .olabel{background:none!important;border:none!important;color:rgba(143,179,191,.42);
+     font-family:monospace;letter-spacing:3px;font-size:12px;white-space:nowrap;pointer-events:none;transition:opacity .5s}
+  #map.zoomed .olabel{opacity:0}
+  .ctytip{background:rgba(4,26,36,.88)!important;border:1px solid var(--edge)!important;
+     color:var(--ink)!important;font-weight:800;border-radius:8px!important;box-shadow:none!important}
   .buoy .pin{width:15px;height:15px;border-radius:50%;background:var(--accent);border:2px solid #eafcff;
      box-shadow:0 0 0 4px rgba(47,243,224,.22),0 0 16px var(--accent);position:relative}
   .buoy .pin:after{content:"";position:absolute;left:50%;top:50%;width:15px;height:15px;border-radius:50%;
@@ -223,7 +231,7 @@
   <p class="lead">泛亞洲 × 世界經典,共 24 點。點浮標 🛟 看季節/看得到什麼/注意/船潛岸潛。</p>
 
   <div id="map"></div>
-  <p class="hint" style="margin-top:12px">🛟 發光的點就是潛點,點一下看詳情;地圖可縮放 洲→國→市。收錄 24 點:沖繩・台灣(墾丁/綠島/小琉球/蘭嶼/龍洞/潮境)・菲(墨寶/薄荷/長尾鯊島/阿尼洛/科隆)・帛琉・印尼(峇里/科莫多/四王)・泰國・馬來西亞・馬爾地夫・紅海。</p>
+  <p class="hint" style="margin-top:12px">🖐 <b>trackpad 雙指捏合</b>(或 ⌘+滾輪、雙擊、+/-)縮放;滑過國家會亮起顯示名字,<b>點國家就潛進去</b>;發光點=潛點,點開看季節/看得到什麼/注意/船潛岸潛。收錄 24 點,持續增加中 🌏</p>
 </section>
 
 <!-- 5m 實操 -->
@@ -296,10 +304,27 @@ const SEC=[["news","00","情報"],["rookie","02","新手"],["spots","04","潛點
 const rail=document.getElementById("rail");
 rail.innerHTML=SEC.map(([id,d,l])=>`<a href="#${id}" data-id="${id}"><span class="txt"><span class="lb">${l}</span><span class="dp mono">${d}m</span></span><span class="dot"></span></a>`).join("");
 const links=[...rail.querySelectorAll("a")];
-function spy(){const cy=innerHeight*0.4;let cur=SEC[0][0];
-  for(const [id] of SEC){const el=document.getElementById(id);if(el&&el.getBoundingClientRect().top<=cy)cur=id;}
-  links.forEach(a=>a.classList.toggle("on",a.dataset.id===cur));}
-addEventListener("scroll",()=>requestAnimationFrame(spy),{passive:true});spy();
+// 連續漸變:每個索引依「離視線中心的距離」平滑插值,慢慢潛下去
+function railTick(){
+  const cy=innerHeight*0.42;
+  links.forEach(a=>{
+    const el=document.getElementById(a.dataset.id);if(!el)return;
+    const r=el.getBoundingClientRect();
+    const mid=r.top+Math.min(r.height,innerHeight)/2;
+    let t=Math.max(0,1-Math.abs(mid-cy)/(innerHeight*.85));
+    t=t*t*(3-2*t); // smoothstep
+    a.style.transform=`scale(${(1+.3*t).toFixed(3)})`;
+    const dot=a.querySelector(".dot");
+    dot.style.background=`rgba(47,243,224,${(.22+.78*t).toFixed(2)})`;
+    dot.style.boxShadow=`0 0 ${Math.round(15*t)}px rgba(47,243,224,${t.toFixed(2)})`;
+    const tx=a.querySelector(".txt");
+    tx.style.maxWidth=Math.round(150*t)+"px";
+    tx.style.opacity=t.toFixed(2);
+  });
+}
+let railPend=false;
+addEventListener("scroll",()=>{if(!railPend){railPend=true;requestAnimationFrame(()=>{railTick();railPend=false;});}},{passive:true});
+railTick();
 
 // 進場
 const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add("in");io.unobserve(e.target);}}),{threshold:.12});
@@ -335,10 +360,36 @@ function openNews(t,b){const o=document.createElement("div");
     <div style="margin-top:16px"><a href="https://github.com/sssunwl/SakiDive" target="_blank" style="font-size:12px">看完整簡報與來源 ↗</a></div></div>`;
   o.onclick=e=>{if(e.target===o)o.remove()};document.body.appendChild(o);}
 
-// 真地圖
-const map=L.map('map',{scrollWheelZoom:false}).setView([9,118],3.2);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png',
-  {attribution:'© OpenStreetMap © CARTO',maxZoom:16}).addTo(map);
+// 風格化暗色世界地圖(無圖磚:海=深色底、陸=向量色塊)
+const map=L.map('map',{scrollWheelZoom:false,zoomSnap:0,zoomDelta:.5,minZoom:2,maxZoom:11,
+  attributionControl:false,worldCopyJump:true}).setView([12,112],2.6);
+const baseStyle={fillColor:"#0c3d4d",fillOpacity:.95,color:"rgba(47,243,224,.16)",weight:1};
+const hotStyle ={fillColor:"#166178",fillOpacity:1,color:"rgba(47,243,224,.6)",weight:1.6};
+const CTY={"Japan":"日本","Taiwan":"台灣","Philippines":"菲律賓","Palau":"帛琉","Indonesia":"印尼",
+ "Thailand":"泰國","Malaysia":"馬來西亞","Maldives":"馬爾地夫","Egypt":"埃及","China":"中國",
+ "Vietnam":"越南","South Korea":"韓國","Korea":"韓國","Australia":"澳洲","India":"印度","Myanmar":"緬甸",
+ "Cambodia":"柬埔寨","Papua New Guinea":"巴布亞紐幾內亞","Sri Lanka":"斯里蘭卡","Saudi Arabia":"沙烏地阿拉伯",
+ "Sudan":"蘇丹","Brunei":"汶萊","Singapore":"新加坡","Laos":"寮國","United States of America":"美國","Mexico":"墨西哥"};
+fetch("https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json")
+ .then(r=>r.json()).then(gj=>{
+  L.geoJSON(gj,{style:()=>baseStyle,onEachFeature:(f,l)=>{
+    const n=CTY[f.properties.name]||f.properties.name;
+    l.bindTooltip(n,{sticky:true,direction:"top",className:"ctytip",opacity:1});
+    l.on("mouseover",()=>l.setStyle(hotStyle));
+    l.on("mouseout",()=>l.setStyle(baseStyle));
+    l.on("click",()=>map.flyToBounds(l.getBounds(),{padding:[26,26],duration:.9}));
+  }}).addTo(map);
+});
+// 大洋標籤(低倍率顯示,潛入後淡出)
+[["太平洋 PACIFIC",16,152],["印度洋 INDIAN",-10,80],["南海",13,114],["紅海",21,38]].forEach(([t,la,ln])=>
+  L.marker([la,ln],{icon:L.divIcon({className:"olabel",html:t,iconSize:[220,20],iconAnchor:[110,10]}),interactive:false}).addTo(map));
+map.on("zoomend",()=>document.getElementById("map").classList.toggle("zoomed",map.getZoom()>3.8));
+// trackpad 雙指捏合 / ⌘+滾輪 縮放(不搶頁面捲動)
+const mc=map.getContainer();
+mc.addEventListener("wheel",e=>{
+  if(e.ctrlKey||e.metaKey){e.preventDefault();
+    map.setZoomAround(map.mouseEventToLatLng(e),map.getZoom()-e.deltaY*0.02);}
+},{passive:false});
 fetch('spots.json').then(r=>r.json()).then(d=>{
   d.spots.forEach(s=>{
     const m=L.marker([s.lat,s.lng],{icon:L.divIcon({className:'buoy',html:'<div class="pin"></div>',iconSize:[16,16],iconAnchor:[8,8]})}).addTo(map);
