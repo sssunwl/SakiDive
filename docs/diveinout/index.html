@@ -29,16 +29,21 @@
   .wrap{max-width:1000px;margin:0 auto;padding:0 22px;position:relative;z-index:3}
 
   /* 深度章節索引(右側) */
-  .rail{position:fixed;top:50%;right:18px;transform:translateY(-50%);z-index:20;
-     display:flex;flex-direction:column;gap:17px;align-items:flex-end}
-  .rail a{display:flex;align-items:center;gap:9px;justify-content:flex-end;
-     transition:transform .22s linear;transform-origin:right center}
-  .rail a .txt{display:flex;align-items:baseline;gap:7px;max-width:0;opacity:0;overflow:hidden;
-     transition:max-width .22s linear,opacity .22s linear;white-space:nowrap}
-  .rail a .lb{font-size:14px;font-weight:800;letter-spacing:1px;color:var(--accent)}
-  .rail a .dp{font-size:11px;color:var(--dim)}
-  .rail a .dot{width:8px;height:8px;border-radius:50%;background:rgba(233,251,255,.35);flex:0 0 auto;
-     transition:background .22s linear,box-shadow .22s linear}
+  /* 深度光軌:一條線 + 往下潛的光 */
+  .rail{position:fixed;top:14vh;right:28px;height:72vh;width:2px;z-index:20}
+  .rtrack{position:absolute;inset:0;width:2px;border-radius:2px;
+     background:linear-gradient(180deg,rgba(47,243,224,.05),rgba(47,243,224,.32) 50%,rgba(47,243,224,.05))}
+  .rglow{position:absolute;left:1px;top:0;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;
+     background:#fff;box-shadow:0 0 6px 2px rgba(255,255,255,.6),0 0 22px 7px rgba(47,243,224,.5);
+     transition:top .14s linear}
+  .rglow:before{content:"";position:absolute;left:50%;bottom:100%;transform:translateX(-50%);
+     width:2px;height:58px;background:linear-gradient(180deg,transparent,rgba(47,243,224,.85))}
+  .rlab{position:absolute;right:18px;top:50%;transform:translateY(-50%);white-space:nowrap;text-align:right;
+     font-size:12.5px;font-weight:800;letter-spacing:1px;color:var(--accent);transition:opacity .35s}
+  .rlab small{display:block;font-family:ui-monospace,Menlo,monospace;font-size:10px;color:var(--dim);letter-spacing:2px}
+  .rtick{position:absolute;left:50%;transform:translate(-50%,-50%);width:5px;height:5px;border-radius:50%;
+     background:rgba(233,251,255,.3);cursor:pointer;transition:background .3s,box-shadow .3s}
+  .rtick:hover{background:var(--accent);box-shadow:0 0 10px var(--accent)}
 
   /* Hero */
   .hero{height:100vh;min-height:560px;display:flex;flex-direction:column;justify-content:center;position:relative}
@@ -108,15 +113,16 @@
   .mtitle{font-family:monospace;font-size:12px;color:var(--accent);margin:14px 0 8px;letter-spacing:1px}
   #map{height:460px;border-radius:14px;overflow:hidden;border:1px solid var(--edge);z-index:2}
   #map{background:#04202c}
-  .leaflet-popup-content-wrapper{background:rgba(4,26,36,.82);backdrop-filter:blur(8px);
-     border:1px solid var(--edge);border-radius:14px;box-shadow:0 16px 44px -16px rgba(0,0,0,.7)}
-  .leaflet-popup-tip{background:rgba(4,26,36,.82)}
+  .leaflet-popup-content-wrapper{background:rgba(4,26,36,.86)!important;backdrop-filter:blur(10px);
+     border:1px solid var(--edge);border-radius:14px;box-shadow:0 16px 44px -16px rgba(0,0,0,.7);color:var(--ink)!important}
+  .leaflet-popup-tip{background:rgba(4,26,36,.86)!important}
   .leaflet-popup-close-button{color:var(--dim)!important}
   .pop{color:var(--ink);min-width:214px}.pop h4{font-size:16px;margin-bottom:2px;color:#fff}
   .pop .pl{font-size:12px;color:var(--dim);margin-bottom:7px}
   .pop .tag{display:inline-block;background:rgba(47,243,224,.12);color:var(--accent);border:1px solid var(--edge);
      border-radius:99px;padding:1px 9px;font-size:11px;font-weight:700;margin:0 4px 6px 0}
-  .pop p{font-size:12.5px;line-height:1.6;margin:4px 0;color:#cfe4ea}.pop b{color:var(--accent)}
+  .pop p{font-size:12.5px;line-height:1.65;margin:6px 0;color:#cfe4ea;padding-top:6px;border-top:1px dashed rgba(255,255,255,.08)}
+  .pop b{color:var(--accent);margin-right:7px;white-space:nowrap}
   .olabel{background:none!important;border:none!important;color:rgba(143,179,191,.42);
      font-family:monospace;letter-spacing:3px;font-size:12px;white-space:nowrap;pointer-events:none;transition:opacity .5s}
   #map.zoomed .olabel{opacity:0}
@@ -141,7 +147,11 @@
 <body class="ocean grain">
 <div class="bubbles" id="bub"></div>
 
-<nav class="rail" id="rail"></nav>
+<nav class="rail" id="rail">
+  <div class="rtrack"></div>
+  <div class="rglow" id="rglow"><span class="rlab" id="rlab"></span></div>
+  <div id="rticks"></div>
+</nav>
 
 <header class="hero wrap" id="top">
   <div class="kick">PAN-ASIA DIVE MAG</div>
@@ -301,30 +311,31 @@ for(let i=0;i<10;i++){const b=document.createElement("i");const s=3+Math.random(
 
 // 深度章節索引 + scroll-spy 放大
 const SEC=[["news","00","情報"],["rookie","02","新手"],["spots","04","潛點"],["ops","05","實操"],["tec","06","技潛"],["log","35","日誌"],["about","40","關於"]];
-const rail=document.getElementById("rail");
-rail.innerHTML=SEC.map(([id,d,l])=>`<a href="#${id}" data-id="${id}"><span class="txt"><span class="lb">${l}</span><span class="dp mono">${d}m</span></span><span class="dot"></span></a>`).join("");
-const links=[...rail.querySelectorAll("a")];
-// 連續漸變:每個索引依「離視線中心的距離」平滑插值,慢慢潛下去
+const rglow=document.getElementById("rglow"),rlab=document.getElementById("rlab"),rticks=document.getElementById("rticks");
+// 刻度:各層在整頁的相對位置(可點跳轉)
+function placeTicks(){
+  rticks.innerHTML=SEC.map(([id])=>{
+    const el=document.getElementById(id);if(!el)return"";
+    const p=(el.offsetTop+el.offsetHeight/2)/document.body.scrollHeight*100;
+    return `<div class="rtick" data-id="${id}" style="top:${p.toFixed(1)}%"></div>`;
+  }).join("");
+  rticks.querySelectorAll(".rtick").forEach(t=>t.onclick=()=>document.getElementById(t.dataset.id).scrollIntoView({behavior:"smooth"}));
+}
+// 光點沿線滑降 + 顯示目前層
 function railTick(){
-  const cy=innerHeight*0.42;
-  links.forEach(a=>{
-    const el=document.getElementById(a.dataset.id);if(!el)return;
-    const r=el.getBoundingClientRect();
-    const mid=r.top+Math.min(r.height,innerHeight)/2;
-    let t=Math.max(0,1-Math.abs(mid-cy)/(innerHeight*.85));
-    t=t*t*(3-2*t); // smoothstep
-    a.style.transform=`scale(${(1+.3*t).toFixed(3)})`;
-    const dot=a.querySelector(".dot");
-    dot.style.background=`rgba(47,243,224,${(.22+.78*t).toFixed(2)})`;
-    dot.style.boxShadow=`0 0 ${Math.round(15*t)}px rgba(47,243,224,${t.toFixed(2)})`;
-    const tx=a.querySelector(".txt");
-    tx.style.maxWidth=Math.round(150*t)+"px";
-    tx.style.opacity=t.toFixed(2);
-  });
+  const h=Math.max(document.body.scrollHeight-innerHeight,1);
+  rglow.style.top=Math.min(100,Math.max(0,scrollY/h*100))+"%";
+  const cy=innerHeight*.45;let cur=null;
+  for(const s of SEC){const el=document.getElementById(s[0]);
+    if(el&&el.getBoundingClientRect().top<=cy)cur=s;}
+  if(cur){rlab.innerHTML=`${cur[2]}<small>${cur[1]}M</small>`;rlab.style.opacity=1;}
+  else rlab.style.opacity=0;
 }
 let railPend=false;
 addEventListener("scroll",()=>{if(!railPend){railPend=true;requestAnimationFrame(()=>{railTick();railPend=false;});}},{passive:true});
-railTick();
+addEventListener("resize",placeTicks);
+addEventListener("load",()=>{placeTicks();railTick();});
+placeTicks();railTick();
 
 // 進場
 const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add("in");io.unobserve(e.target);}}),{threshold:.12});
@@ -383,7 +394,14 @@ fetch("https://raw.githubusercontent.com/johan/world.geo.json/master/countries.g
 // 大洋標籤(低倍率顯示,潛入後淡出)
 [["太平洋 PACIFIC",16,152],["印度洋 INDIAN",-10,80],["南海",13,114],["紅海",21,38]].forEach(([t,la,ln])=>
   L.marker([la,ln],{icon:L.divIcon({className:"olabel",html:t,iconSize:[220,20],iconAnchor:[110,10]}),interactive:false}).addTo(map));
-map.on("zoomend",()=>document.getElementById("map").classList.toggle("zoomed",map.getZoom()>3.8));
+// 深入層級(z>5.2)浮出暗色細節底圖:世界向量圖沒有小島,潛進沖繩/帛琉/馬爾地夫靠這層
+const tiles=L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:16,opacity:0});
+map.on("zoomend",()=>{
+  const z=map.getZoom();
+  document.getElementById("map").classList.toggle("zoomed",z>3.8);
+  if(z>5.2){if(!map.hasLayer(tiles))tiles.addTo(map);tiles.setOpacity(Math.min(1,(z-5.2)/1.3));}
+  else if(map.hasLayer(tiles))tiles.setOpacity(0);
+});
 // trackpad 雙指捏合 / ⌘+滾輪 縮放(不搶頁面捲動)
 const mc=map.getContainer();
 mc.addEventListener("wheel",e=>{
@@ -394,10 +412,11 @@ fetch('spots.json').then(r=>r.json()).then(d=>{
   d.spots.forEach(s=>{
     const m=L.marker([s.lat,s.lng],{icon:L.divIcon({className:'buoy',html:'<div class="pin"></div>',iconSize:[16,16],iconAnchor:[8,8]})}).addTo(map);
     m.bindTooltip(s.name,{direction:'top',offset:[0,-6]});
-    m.bindPopup(`<div class="pop"><h4>${s.name}</h4><div class="pl">${s.place}</div>
-      <span class="tag">${s.level}</span><span class="tag">${s.type}</span>
-      <p><b>🗓 季節</b>　${s.season}${s.warn?' ⚠️需覆核':''}</p>
-      <p><b>👀 看得到</b>　${s.see}</p><p><b>❗ 注意</b>　${s.note}</p></div>`);
+    m.bindPopup(`<div class="pop"><h4>${s.name}</h4><div class="pl">📍 ${s.place}</div>
+      <span class="tag">難度 ${s.level}</span><span class="tag">${s.type}</span>
+      <p><b>🗓 最佳季節</b>${s.season}${s.warn?' <span style="color:#ffb24d">⚠️需覆核</span>':''}</p>
+      <p><b>👀 亮點</b>${s.see}</p>
+      <p><b>⚠️ 注意</b>${s.note}</p></div>`);
   });
 });
 </script>
