@@ -99,8 +99,8 @@ def build_prompt(today, blocks):
 (可選,列出值得之後深入的線索)
 
 ## 💡 今日綜合啟示
-只寫「一段」(3~4 句),把今天所有重點串成一個對「經營潛水內容/品牌/雜誌平台」最有價值的行動洞察。
-這段要能獨立閱讀 —— 這是 SS 每天只想看的那一點。
+用「條列 3~5 點」,**依重要性由高到低排序**;每點以 `**粗體關鍵詞**：` 開頭,再接一句話講清楚。
+這是 SS 每天只想快速掃過的重點,不要寫成長段落。
 
 --- 以下是抓到的原文節錄 ---
 {joined}
@@ -176,6 +176,56 @@ def append_insight(db_root, today, insight):
     return path
 
 
+def recent_briefs_text(out_dir, n=4):
+    """讀最近 n 份每日簡報當作題材建議的素材。"""
+    if not os.path.isdir(out_dir):
+        return ""
+    files = sorted(f for f in os.listdir(out_dir) if f.endswith(".md"))[-n:]
+    parts = [open(os.path.join(out_dir, f), encoding="utf-8").read() for f in files]
+    return "\n\n".join(parts)[:20000]
+
+
+def build_topics_prompt(today, ctx):
+    return f"""根據以下最近的潛水每日簡報,為「DiveInOut 潛旅生活誌」提出**下週最值得做的 9 個內容題目**。
+今天是 {today}。定位:生活風、新手友善、泛亞洲潛旅。
+
+要求:
+- 依「預估熱度」由高到低排序。
+- 預估熱度是 0–100 的分數(你的預測,之後會拿實際數據對比,請認真評估、拉開差距)。
+- 每題一句「依據」(為什麼會紅)。
+- 類型只能填:裝備 / 潛旅 / 安全 / 保育 / 入門 / 產業 / 生活。
+- 只根據提供的情報,不要編造。
+
+直接輸出這個 Markdown,不要多加說明:
+
+# 🔥 下週題材建議 — {today}
+
+> 熱度為 AI 預估(0–100),日後填入「實際表現」以校準預測準度。
+
+| # | 題目 | 類型 | 預估熱度 | 依據 | 實際表現 |
+|:-:|------|:--:|:--:|------|:--:|
+(9 列,熱度由高到低,實際表現先留「—」)
+
+--- 最近情報 ---
+{ctx}
+"""
+
+
+def generate_topics(key, today, out_dir, db_root):
+    ctx = recent_briefs_text(out_dir)
+    if not ctx:
+        return None
+    md, err = call_gemini(key, build_topics_prompt(today, ctx))
+    if err:
+        print("⚠️ 題材建議產生失敗:", err)
+        return None
+    path = os.path.join(db_root, "下週題材建議.md")
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(md.rstrip() + "\n")
+    print(f"✅ 下週題材建議 → {path}")
+    return path
+
+
 def git_push(db_root, today):
     """git add/commit/push。需先 git init 並設好 remote。"""
     def run(*args):
@@ -235,6 +285,8 @@ def main():
     ipath = append_insight(DB_ROOT, today, extract_insight(md))
     if ipath:
         print(f"✅ 綜合啟示已累積 → {ipath}")
+
+    generate_topics(key, today, OUT_DIR, DB_ROOT)
 
     if push:
         git_push(DB_ROOT, today)
