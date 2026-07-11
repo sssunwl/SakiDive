@@ -29,17 +29,18 @@
   .wrap{max-width:1000px;margin:0 auto;padding:0 22px;position:relative;z-index:3}
 
   /* 深度章節索引(右側) */
-  .rail{position:fixed;top:50%;right:14px;transform:translateY(-50%);z-index:20;
-     display:flex;flex-direction:column;gap:14px;align-items:flex-end}
-  .rail a{display:flex;align-items:center;gap:8px;justify-content:flex-end;opacity:.4;
-     transition:opacity .3s,transform .3s;transform-origin:right center}
-  .rail a .lb{font-size:11px;font-weight:800;letter-spacing:1px;white-space:nowrap}
-  .rail a .dp{font-size:10px;color:var(--accent);min-width:30px;text-align:right}
-  .rail a .dot{width:7px;height:7px;border-radius:50%;background:var(--ink);flex:0 0 auto}
-  .rail a.on{opacity:1;transform:scale(1.32)}
-  .rail a.on .dot{background:var(--accent);box-shadow:0 0 12px var(--accent)}
-  .rail a.on .lb{color:var(--accent)}
-  @media(max-width:640px){.rail a .lb{display:none}}
+  .rail{position:fixed;top:50%;right:18px;transform:translateY(-50%);z-index:20;
+     display:flex;flex-direction:column;gap:17px;align-items:flex-end}
+  .rail a{display:flex;align-items:center;gap:9px;justify-content:flex-end;
+     transition:.35s cubic-bezier(.2,.7,.2,1);transform-origin:right center}
+  .rail a .txt{display:flex;align-items:baseline;gap:7px;max-width:0;opacity:0;overflow:hidden;
+     transition:.35s cubic-bezier(.2,.7,.2,1);white-space:nowrap}
+  .rail a .lb{font-size:14px;font-weight:800;letter-spacing:1px;color:var(--accent)}
+  .rail a .dp{font-size:11px;color:var(--dim)}
+  .rail a .dot{width:7px;height:7px;border-radius:50%;background:rgba(233,251,255,.4);flex:0 0 auto;transition:.35s}
+  .rail a.on{transform:scale(1.15)}
+  .rail a.on .txt{max-width:160px;opacity:1}
+  .rail a.on .dot{width:9px;height:9px;background:var(--accent);box-shadow:0 0 14px var(--accent)}
 
   /* Hero */
   .hero{height:100vh;min-height:560px;display:flex;flex-direction:column;justify-content:center;position:relative}
@@ -85,13 +86,14 @@
   .ncard:hover .more{opacity:1}
 
   /* 點按展開區(潮感 details) */
-  details.acc{border:1px solid rgba(255,255,255,.12);border-radius:12px;margin-bottom:12px;overflow:hidden;background:var(--card)}
-  details.acc summary{list-style:none;cursor:pointer;padding:16px 18px;display:flex;align-items:center;gap:12px;font-weight:700;font-size:16px}
-  details.acc summary::-webkit-details-marker{display:none}
-  details.acc summary .pl{margin-left:auto;color:var(--accent);font-size:20px;transition:.3s}
-  details.acc[open] summary .pl{transform:rotate(45deg)}
-  details.acc .body{padding:0 18px 18px}
-  details.acc summary .tg{font-family:monospace;font-size:11px;color:var(--accent);border:1px solid var(--edge);border-radius:99px;padding:2px 8px}
+  .kx{border:1px solid rgba(255,255,255,.12);border-radius:12px;margin-bottom:12px;overflow:hidden;background:var(--card);transition:border-color .3s}
+  .kx:hover{border-color:var(--edge)}
+  .kh{cursor:pointer;padding:16px 18px;display:flex;align-items:center;gap:12px;font-weight:700;font-size:16px}
+  .kh .tg{font-family:monospace;font-size:11px;color:var(--accent);border:1px solid var(--edge);border-radius:99px;padding:2px 8px}
+  .kh .pl{margin-left:auto;color:var(--accent);font-size:20px;transition:.35s}
+  .kbody{max-height:0;overflow:hidden;opacity:0;padding:0 18px;transition:max-height .55s cubic-bezier(.2,.7,.2,1),opacity .4s,padding .4s}
+  .kx:hover .kbody,.kx.open .kbody{max-height:1000px;opacity:1;padding:0 18px 18px}
+  .kx:hover .pl,.kx.open .pl{transform:rotate(45deg)}
 
   table.cmp{width:100%;border-collapse:collapse;font-size:13px}
   table.cmp th,table.cmp td{padding:8px 10px;text-align:left;border-bottom:1px solid rgba(255,255,255,.08)}
@@ -112,17 +114,11 @@
   .pop .pl{font-size:12px;color:#5c7688;margin-bottom:7px}
   .pop .tag{display:inline-block;background:#e7fbf9;color:#0a5c7a;border-radius:99px;padding:1px 9px;font-size:11px;font-weight:700;margin:0 4px 6px 0}
   .pop p{font-size:12.5px;line-height:1.6;margin:4px 0;color:#26414f}.pop b{color:#0a5c7a}
-  .buoy{font-size:19px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.5));text-align:center;line-height:22px}
-  /* 風格化手繪地圖 */
-  .smapwrap{border:1px dashed var(--edge);border-radius:14px;padding:10px;background:rgba(47,243,224,.03)}
-  #smap{width:100%;height:auto;display:block;border-radius:10px}
-  .blob{fill:#0e3a48;stroke:rgba(47,243,224,.25);stroke-width:1.5;transition:fill .3s}
-  .blob.hot{fill:#12586a}
-  .olabel{fill:rgba(143,179,191,.55);font-size:13px;font-family:monospace;letter-spacing:2px}
-  .sbuoy{fill:var(--pop);stroke:#fff;stroke-width:1.5;cursor:pointer;transition:r .2s,fill .2s}
-  .sbuoy:hover{fill:var(--accent);r:9}
-  .stip{fill:#020a10;stroke:var(--edge);}
-  .stiptx{fill:var(--ink);font-size:12px;font-weight:700}
+  .buoy .pin{width:15px;height:15px;border-radius:50%;background:var(--accent);border:2px solid #eafcff;
+     box-shadow:0 0 0 4px rgba(47,243,224,.22),0 0 16px var(--accent);position:relative}
+  .buoy .pin:after{content:"";position:absolute;left:50%;top:50%;width:15px;height:15px;border-radius:50%;
+     transform:translate(-50%,-50%);border:1px solid var(--accent);animation:ping 2s ease-out infinite}
+  @keyframes ping{0%{width:15px;height:15px;opacity:.7}100%{width:42px;height:42px;opacity:0}}
 
   .cta{display:inline-block;margin-top:6px;background:var(--accent);color:#04202c;font-weight:900;
      padding:13px 24px;border-radius:8px;letter-spacing:1px;transition:.2s}
@@ -162,9 +158,9 @@
   <h2>新手上路</h2>
   <p class="lead">還沒下水?先搞懂這些再談考證。點開你想看的。</p>
 
-  <details class="acc">
-    <summary><span class="tg">BASICS</span>🫧 下水前必懂 8 件事<span class="pl">＋</span></summary>
-    <div class="body"><div class="grid g4">
+  <div class="kx">
+    <div class="kh"><span class="tg">BASICS</span>🫧 下水前必懂 8 件事<span class="pl">＋</span></div>
+    <div class="kbody"><div class="grid g4">
       <div class="card"><div class="emo">🫁</div><h3>水肺 vs 自由潛</h3><p>一個背氣瓶待水下、一個閉氣下潛。先決定玩哪種。</p></div>
       <div class="card"><div class="emo">👂</div><h3>平壓(耳壓)</h3><p>耳朵痛就捏鼻鼓氣;痛就停、上升一點再試,別硬撐。</p></div>
       <div class="card"><div class="emo">🌬</div><h3>絕不憋氣</h3><p>水肺鐵律:永遠正常呼吸,憋氣上升可能傷肺。</p></div>
@@ -174,11 +170,11 @@
       <div class="card"><div class="emo">🥽</div><h3>裝備入門</h3><p>面鏡/蛙鞋/BCD/調節器/電腦錶。初期租借就好。</p></div>
       <div class="card"><div class="emo">🏁</div><h3>怎麼開始</h3><p>先體驗潛水(DSD)試水溫,喜歡再考 OWD。</p></div>
     </div></div>
-  </details>
+  </div>
 
-  <details class="acc">
-    <summary><span class="tg">SYSTEMS</span>🎫 潛水系統怎麼選<span class="pl">＋</span></summary>
-    <div class="body"><div class="grid g2">
+  <div class="kx">
+    <div class="kh"><span class="tg">SYSTEMS</span>🎫 潛水系統怎麼選<span class="pl">＋</span></div>
+    <div class="kbody"><div class="grid g2">
       <table class="cmp"><tr><th>水肺系統</th><th>特點</th></tr>
         <tr><td>PADI</td><td>全球最大最普及,潛店最多</td></tr>
         <tr><td>SSI</td><td>數位化、彈性,近年很熱</td></tr>
@@ -190,11 +186,11 @@
         <tr><td>PADI / SSI Freediving</td><td>與水肺同體系,好銜接</td></tr>
         <tr><td>Apnea Total</td><td>系統化教學</td></tr></table>
     </div><p class="hint">多半可跨系統銜接;先看你附近潛店教哪家最方便。</p></div>
-  </details>
+  </div>
 
-  <details class="acc">
-    <summary><span class="tg">PATH</span>🪜 課程里程碑(圖解)<span class="pl">＋</span></summary>
-    <div class="body">
+  <div class="kx">
+    <div class="kh"><span class="tg">PATH</span>🪜 課程里程碑(圖解)<span class="pl">＋</span></div>
+    <div class="kbody">
       <div class="lname">🤿 水肺 SCUBA(PADI 例)</div>
       <div class="steps">
         <div class="step"><b>DSD</b><span>體驗</span></div><span class="arw">→</span>
@@ -216,7 +212,7 @@
       </div>
       <p class="hint">🚧 日後會把各級課程內容、費用整理進來,並加自我檢測小測驗。</p>
     </div>
-  </details>
+  </div>
 </section>
 
 <!-- 4m 潛點 -->
@@ -226,26 +222,8 @@
   <h2>潛點地圖</h2>
   <p class="lead">泛亞洲 × 世界經典,共 24 點。點浮標 🛟 看季節/看得到什麼/注意/船潛岸潛。</p>
 
-  <div class="mtitle">▚ 真地圖版(可縮放 洲→國→市→潛點)</div>
   <div id="map"></div>
-
-  <div class="mtitle" style="margin-top:22px">▚ 風格化手繪版(概念 demo,想看的樣子)</div>
-  <div class="smapwrap">
-    <svg id="smap" viewBox="0 0 900 460" xmlns="http://www.w3.org/2000/svg">
-      <text class="olabel" x="120" y="120">太平洋 PACIFIC</text>
-      <text class="olabel" x="360" y="300">印度洋 INDIAN</text>
-      <text class="olabel" x="70" y="300">紅海</text>
-      <!-- 粗略陸塊 blob(風格化,非精準) -->
-      <path id="asia" class="blob" d="M470,70 q120,-30 200,20 q60,40 20,110 q-40,60 -140,60 q-120,10 -170,-40 q-40,-60 20,-120 q30,-40 50,-30 Z"/>
-      <path id="sea" class="blob" d="M560,210 q70,-10 90,40 q10,50 -50,70 q-70,20 -100,-30 q-20,-50 60,-80 Z"/>
-      <path id="aus" class="blob" d="M690,320 q80,-10 90,50 q-10,60 -90,55 q-70,-5 -60,-60 q10,-45 60,-45 Z"/>
-      <path id="africa" class="blob" d="M120,220 q60,-20 80,40 q10,70 -40,110 q-50,20 -70,-40 q-20,-80 30,-110 Z"/>
-      <g id="smarkers"></g>
-      <g id="stip" style="display:none"><rect class="stip" rx="6" width="150" height="26"/><text class="stiptx" x="8" y="18"></text></g>
-    </svg>
-    <p class="hint">☝️ 這是「純風格化」的樣子:大洋標籤 + 陸塊、浮標 hover 顯示名字並讓所在區塊變色。<b>你選要真地圖、還是這種風格版</b>(或兩個都留)。</p>
-  </div>
-  <p class="hint" style="margin-top:10px">真地圖收錄:沖繩・台灣(墾丁/綠島/小琉球/蘭嶼/龍洞/潮境)・菲(墨寶/薄荷/長尾鯊島/阿尼洛/科隆)・帛琉・印尼(峇里/科莫多/四王)・泰國・馬來西亞・馬爾地夫・紅海。</p>
+  <p class="hint" style="margin-top:12px">🛟 發光的點就是潛點,點一下看詳情;地圖可縮放 洲→國→市。收錄 24 點:沖繩・台灣(墾丁/綠島/小琉球/蘭嶼/龍洞/潮境)・菲(墨寶/薄荷/長尾鯊島/阿尼洛/科隆)・帛琉・印尼(峇里/科莫多/四王)・泰國・馬來西亞・馬爾地夫・紅海。</p>
 </section>
 
 <!-- 5m 實操 -->
@@ -316,7 +294,7 @@ for(let i=0;i<10;i++){const b=document.createElement("i");const s=3+Math.random(
 // 深度章節索引 + scroll-spy 放大
 const SEC=[["news","00","情報"],["rookie","02","新手"],["spots","04","潛點"],["ops","05","實操"],["tec","06","技潛"],["log","35","日誌"],["about","40","關於"]];
 const rail=document.getElementById("rail");
-rail.innerHTML=SEC.map(([id,d,l])=>`<a href="#${id}" data-id="${id}"><span class="lb">${l}</span><span class="dp mono">${d}m</span><span class="dot"></span></a>`).join("");
+rail.innerHTML=SEC.map(([id,d,l])=>`<a href="#${id}" data-id="${id}"><span class="txt"><span class="lb">${l}</span><span class="dp mono">${d}m</span></span><span class="dot"></span></a>`).join("");
 const links=[...rail.querySelectorAll("a")];
 function spy(){const cy=innerHeight*0.4;let cur=SEC[0][0];
   for(const [id] of SEC){const el=document.getElementById(id);if(el&&el.getBoundingClientRect().top<=cy)cur=id;}
@@ -326,6 +304,8 @@ addEventListener("scroll",()=>requestAnimationFrame(spy),{passive:true});spy();
 // 進場
 const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add("in");io.unobserve(e.target);}}),{threshold:.12});
 document.querySelectorAll(".reveal").forEach(el=>io.observe(el));
+// 知識區:點標題可釘住展開(hover 也會展開)
+document.querySelectorAll(".kh").forEach(h=>h.onclick=()=>h.parentElement.classList.toggle("open"));
 
 // 情報卡(標題→hover展開→點擊看全部)
 const RAW="https://raw.githubusercontent.com/sssunwl/SakiDive/main/";
@@ -361,26 +341,12 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{
   {attribution:'© OpenStreetMap © CARTO',maxZoom:16}).addTo(map);
 fetch('spots.json').then(r=>r.json()).then(d=>{
   d.spots.forEach(s=>{
-    const m=L.marker([s.lat,s.lng],{icon:L.divIcon({className:'buoy',html:'🛟',iconSize:[22,22]})}).addTo(map);
+    const m=L.marker([s.lat,s.lng],{icon:L.divIcon({className:'buoy',html:'<div class="pin"></div>',iconSize:[16,16],iconAnchor:[8,8]})}).addTo(map);
     m.bindTooltip(s.name,{direction:'top',offset:[0,-6]});
     m.bindPopup(`<div class="pop"><h4>${s.name}</h4><div class="pl">${s.place}</div>
       <span class="tag">${s.level}</span><span class="tag">${s.type}</span>
       <p><b>🗓 季節</b>　${s.season}${s.warn?' ⚠️需覆核':''}</p>
       <p><b>👀 看得到</b>　${s.see}</p><p><b>❗ 注意</b>　${s.note}</p></div>`);
-  });
-  // 風格化地圖:挑代表點放上去
-  const SP=[["沖繩",650,150,"asia"],["台灣",610,175,"asia"],["菲律賓",640,215,"sea"],["帛琉",700,235,"sea"],
-    ["峇里",610,300,"sea"],["四王群島",720,275,"sea"],["泰國",560,205,"sea"],["馬爾地夫",380,255,"africa"],["紅海",140,215,"africa"]];
-  const g=document.getElementById("smarkers");const tip=document.getElementById("stip");
-  const tx=tip.querySelector("text"),rc=tip.querySelector("rect");
-  g.innerHTML=SP.map(([n,x,y])=>`<circle class="sbuoy" cx="${x}" cy="${y}" r="6" data-n="${n}"></circle>`).join("");
-  g.querySelectorAll(".sbuoy").forEach(c=>{
-    c.addEventListener("mouseenter",()=>{const n=c.dataset.n,bl=SP.find(s=>s[0]===n)[3];
-      document.querySelectorAll(".blob").forEach(b=>b.classList.remove("hot"));
-      document.getElementById(bl)?.classList.add("hot");
-      tx.textContent="🛟 "+n;rc.setAttribute("width",n.length*16+40);
-      tip.setAttribute("transform",`translate(${+c.getAttribute("cx")+10},${+c.getAttribute("cy")-30})`);tip.style.display="";});
-    c.addEventListener("mouseleave",()=>{tip.style.display="none";document.querySelectorAll(".blob").forEach(b=>b.classList.remove("hot"));});
   });
 });
 </script>
