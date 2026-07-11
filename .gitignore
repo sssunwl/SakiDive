@@ -1,0 +1,9 @@
+# 執行紀錄與系統雜物,不進版控
+_pipeline/run.log
+.DS_Store
+**/.DS_Store
+
+# 保險:就算誤放憑證也不會上傳
+credentials.json
+*.key
+.env
