@@ -4,193 +4,294 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DiveInOut ｜ 潛旅生活誌</title>
-<meta name="description" content="潛進亞洲的海,帶你看見水下的世界。最即時、最生活的華語潛旅誌。">
+<meta name="description" content="潛進亞洲的海。愈往下,看見愈深的世界。">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
-  :root{--aqua:#5fd3d0;--teal:#18a0a8;--ocean:#0a5c7a;--deep:#04283f;--abyss:#021620;--sand:#f4efe6}
+  :root{--aqua:#5fd3d0;--teal:#18a0a8;--ocean:#0a5c7a;--deep:#04283f;--abyss:#021620}
   *{box-sizing:border-box;margin:0;padding:0}
   html{scroll-behavior:smooth}
   body{font-family:"PingFang TC","Noto Sans TC",-apple-system,"Segoe UI",sans-serif;
        color:#eaf6f7;background:var(--abyss);overflow-x:hidden}
   a{color:var(--aqua);text-decoration:none}
-
-  /* 全頁由淺到深的海 */
-  .ocean{background:linear-gradient(180deg,
-     #7fd6e6 0%, #3fb3c9 12%, #18809e 30%, #0a5c7a 50%, #063f57 70%, #04283f 86%, #021620 100%);}
-
-  /* 上升浮泡(純CSS,極輕) */
+  .ocean{background:linear-gradient(180deg,#7fd6e6 0%,#3fb3c9 10%,#18809e 26%,#0a5c7a 44%,
+     #073f57 62%,#04283f 80%,#021620 100%)}
   .bubbles{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
-  .bubbles i{position:absolute;bottom:-40px;width:10px;height:10px;border-radius:50%;
-    background:rgba(255,255,255,.18);animation:rise linear infinite}
+  .bubbles i{position:absolute;bottom:-40px;border-radius:50%;background:rgba(255,255,255,.16);
+    animation:rise linear infinite}
   @keyframes rise{to{transform:translateY(-105vh) scale(1.4);opacity:0}}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px;position:relative;z-index:2}
 
-  .wrap{max-width:940px;margin:0 auto;padding:0 20px;position:relative;z-index:2}
+  .depth{position:fixed;top:50%;right:12px;transform:translateY(-50%);z-index:5;text-align:center;
+    font-variant-numeric:tabular-nums;opacity:.85;font-size:11px;letter-spacing:1px}
+  .depth b{display:block;font-size:19px;font-weight:800;color:#fff}
+  .depth .line{width:2px;height:110px;margin:6px auto;background:linear-gradient(#fff6,transparent)}
 
-  /* 深度計 */
-  .depth{position:fixed;top:50%;right:14px;transform:translateY(-50%);z-index:5;text-align:center;
-    font-variant-numeric:tabular-nums;color:#eaf6f7;opacity:.85;font-size:12px;letter-spacing:1px}
-  .depth b{display:block;font-size:20px;font-weight:800;color:#fff}
-  .depth .line{width:2px;height:120px;margin:6px auto;background:linear-gradient(#fff6,transparent)}
-
-  /* Hero */
-  .hero{height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;position:relative}
-  .hero h1{font-size:clamp(44px,11vw,96px);font-weight:800;letter-spacing:3px;text-shadow:0 6px 30px rgba(0,0,0,.25)}
-  .hero h1 .in{color:#fff;-webkit-text-stroke:1px #fff;color:transparent}
+  .hero{height:100vh;min-height:520px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;position:relative}
+  .hero h1{font-size:clamp(44px,11vw,92px);font-weight:800;letter-spacing:3px;text-shadow:0 6px 30px rgba(0,0,0,.25)}
+  .hero h1 .in{-webkit-text-stroke:1.5px #fff;color:transparent}
   .hero p{margin-top:16px;font-size:clamp(15px,3.6vw,20px);opacity:.95;font-weight:300;letter-spacing:1px}
-  .cue{position:absolute;bottom:34px;font-size:13px;opacity:.85;animation:bob 2s ease-in-out infinite}
+  .cue{position:absolute;bottom:32px;font-size:13px;opacity:.85;animation:bob 2s infinite}
   @keyframes bob{50%{transform:translateY(8px)}}
 
-  section.zone{padding:74px 0;position:relative}
-  .ztag{font-size:12px;letter-spacing:3px;text-transform:uppercase;color:var(--aqua);font-weight:700}
-  .zone h2{font-size:clamp(26px,5vw,38px);font-weight:800;margin:6px 0 6px}
-  .zone .lead{opacity:.85;max-width:560px;margin-bottom:26px;font-weight:300}
-
-  .reveal{opacity:0;transform:translateY(26px);transition:opacity .8s ease,transform .8s ease}
+  section.zone{padding:70px 0;position:relative}
+  .ztag{display:inline-block;font-size:12px;letter-spacing:2px;font-weight:800;color:var(--deep);
+    background:var(--aqua);padding:3px 12px;border-radius:99px}
+  .zone h2{font-size:clamp(25px,5vw,36px);font-weight:800;margin:10px 0 6px}
+  .zone .lead{opacity:.86;max-width:600px;margin-bottom:24px;font-weight:300}
+  .reveal{opacity:0;transform:translateY(26px);transition:.8s}
   .reveal.in{opacity:1;transform:none}
 
-  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
-  @media(max-width:720px){.grid{grid-template-columns:1fr 1fr}}
-  @media(max-width:480px){.grid{grid-template-columns:1fr}}
-  .tile{background:rgba(255,255,255,.08);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.14);
-    border-radius:18px;padding:20px;transition:transform .25s ease,background .25s;cursor:default}
-  .tile:hover{transform:translateY(-6px);background:rgba(255,255,255,.16)}
-  .tile .emo{font-size:30px}
-  .tile h3{margin:8px 0 4px;font-size:18px}
-  .tile p{font-size:13.5px;opacity:.82;font-weight:300}
-  .soon{display:inline-block;margin-top:8px;font-size:11px;background:rgba(255,255,255,.18);
-    padding:2px 9px;border-radius:99px;opacity:.9}
+  .grid{display:grid;gap:15px}
+  .g3{grid-template-columns:repeat(3,1fr)}.g4{grid-template-columns:repeat(4,1fr)}.g2{grid-template-columns:1fr 1fr}
+  @media(max-width:760px){.g3,.g4{grid-template-columns:1fr 1fr}}
+  @media(max-width:480px){.g3,.g4,.g2{grid-template-columns:1fr}}
+  .card{background:rgba(255,255,255,.08);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.14);
+    border-radius:18px;padding:18px;transition:transform .25s,background .25s}
+  .card:hover{transform:translateY(-6px);background:rgba(255,255,255,.16)}
+  .card .emo{font-size:26px}.card h3{margin:7px 0 4px;font-size:16px}
+  .card p{font-size:13px;opacity:.85;font-weight:300;line-height:1.65}
 
-  /* 情報精選 */
-  #news ul{list-style:none;display:grid;gap:12px}
-  #news li{background:rgba(255,255,255,.08);border-left:3px solid var(--aqua);border-radius:12px;
-    padding:14px 16px;transition:transform .2s;font-weight:300}
-  #news li:hover{transform:translateX(6px)}
-  #news li strong{color:#fff;font-weight:700}
-  #news a{font-size:12px;opacity:.7}
+  /* 0m 情報卡 */
+  #news .g3 .card{border-left:3px solid var(--aqua)}
+  #news .card h3{font-size:15px}
+  #news .card .cat{font-size:11px;font-weight:700;color:var(--aqua);letter-spacing:1px}
 
-  .ladder{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px}
-  .step{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.16);border-radius:12px;
-    padding:12px 16px;flex:1;min-width:120px;transition:transform .2s}
-  .step:hover{transform:translateY(-4px)}
-  .step b{display:block;font-size:16px}.step span{font-size:12px;opacity:.75}
+  /* 系統對比 */
+  table.cmp{width:100%;border-collapse:collapse;font-size:13px;background:rgba(255,255,255,.06);border-radius:14px;overflow:hidden}
+  table.cmp th,table.cmp td{padding:9px 12px;text-align:left;border-bottom:1px solid rgba(255,255,255,.1)}
+  table.cmp th{background:rgba(255,255,255,.1);font-weight:700}
+  table.cmp tr:last-child td{border-bottom:0}
 
-  .about{background:rgba(2,22,32,.5);border-radius:20px;padding:30px;border:1px solid rgba(255,255,255,.1)}
-  footer{padding:50px 20px 60px;text-align:center;font-size:12px;opacity:.7}
+  /* 課程里程碑 */
+  .ladder{margin:8px 0 6px}
+  .ladder .lname{font-size:13px;font-weight:700;color:var(--aqua);margin-bottom:8px}
+  .steps{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+  .step{position:relative;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.16);
+    border-radius:12px;padding:10px 13px;min-width:96px;transition:transform .2s}
+  .step:hover{transform:translateY(-4px);background:rgba(255,255,255,.18)}
+  .step b{display:block;font-size:14px}.step span{font-size:11px;opacity:.75}
+  .arw{align-self:center;opacity:.5;font-size:14px}
+
+  /* 地圖 */
+  #map{height:470px;border-radius:18px;overflow:hidden;border:1px solid rgba(255,255,255,.2);z-index:1}
+  .leaflet-popup-content-wrapper{border-radius:14px}
+  .pop{color:#12303f;min-width:210px}
+  .pop h4{font-size:16px;margin-bottom:2px}
+  .pop .pl{font-size:12px;color:#5c7688;margin-bottom:7px}
+  .pop .tag{display:inline-block;background:#e7f2f2;color:#0a5c7a;border-radius:99px;padding:1px 9px;font-size:11px;font-weight:700;margin:0 4px 6px 0}
+  .pop p{font-size:12.5px;line-height:1.6;margin:4px 0;color:#26414f}
+  .pop b{color:#0a5c7a}
+  .buoy{font-size:20px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.4));text-align:center;line-height:24px}
+  .maphint{font-size:12px;opacity:.7;margin-top:8px}
+
+  .cta{display:inline-block;margin-top:8px;background:var(--aqua);color:var(--deep);font-weight:800;
+    padding:12px 22px;border-radius:99px;transition:transform .2s}
+  .cta:hover{transform:translateY(-3px);text-decoration:none}
+  .about{background:rgba(2,22,32,.5);border-radius:20px;padding:28px;border:1px solid rgba(255,255,255,.1);font-weight:300;line-height:2}
   .pill{display:inline-block;background:rgba(255,255,255,.12);border-radius:99px;padding:3px 12px;margin:3px;font-size:12px}
+  footer{padding:46px 20px 60px;text-align:center;font-size:12px;opacity:.7}
   .loading{opacity:.6;font-style:italic}
 </style>
 </head>
 <body class="ocean">
-
 <div class="bubbles" id="bub"></div>
-<div class="depth"><span>▽ 深度</span><div class="line"></div><b id="dm">0</b>m</div>
+<div class="depth"><span>▽</span><div class="line"></div><b id="dm">0</b>m</div>
 
 <header class="hero wrap">
   <h1>Dive<span class="in">In</span>Out</h1>
-  <p>潛進亞洲的海,帶你看見水下的世界 🐬</p>
+  <p>潛進亞洲的海,愈往下,看見愈深的世界 🐬</p>
   <div class="cue">▽ 往下潛</div>
 </header>
 
+<!-- 0m 情報 -->
 <section class="zone wrap reveal" id="news">
-  <div class="ztag">-5m ｜ 淺礁區</div>
-  <h2>本週情報精選</h2>
-  <p class="lead">Saki 每週從 7 個中英潛水平台整理的重點,挑生活風、實用的給你。</p>
-  <ul id="newsList"><li class="loading">載入中…</li></ul>
+  <span class="ztag">0m ｜ 海面</span>
+  <h2>本週情報</h2>
+  <p class="lead">Saki 每週從 7 個中英潛水平台撈的重點,挑生活風、實用的給你。</p>
+  <div class="grid g3" id="newsGrid"><div class="card loading">載入中…</div></div>
 </section>
 
+<!-- 2m 新手上路 -->
 <section class="zone wrap reveal">
-  <div class="ztag">-15m ｜ 潛點區</div>
-  <h2>泛亞洲潛點</h2>
-  <p class="lead">從沖繩藍到帛琉,一站看懂季節、海況、看得到什麼。(陸續整理中)</p>
-  <div class="grid">
-    <a class="tile" href="https://github.com/sssunwl/SakiDive/blob/main/01_%E6%BD%9B%E6%B0%B4%E9%BB%9E/%E6%B2%96%E7%B9%A9.md" target="_blank">
-      <div class="emo">🏝</div><h3>沖繩</h3><p>青洞、慶良間藍、宮古島。新手友善,4–11 月最佳。</p></a>
-    <div class="tile"><div class="emo">🐢</div><h3>台灣</h3><p>墾丁 · 綠島 · 小琉球。海龜、潮境、就近好練。</p><span class="soon">整理中</span></div>
-    <div class="tile"><div class="emo">🐠</div><h3>菲律賓</h3><p>宿霧 · 薄荷島 · 沙丁魚風暴、鯨鯊、CP 值高。</p><span class="soon">整理中</span></div>
-    <div class="tile"><div class="emo">🌊</div><h3>帛琉</h3><p>藍角、水母湖、大物天堂。⚠️防曬新規。</p><span class="soon">整理中</span></div>
-    <div class="tile"><div class="emo">🐡</div><h3>印尼</h3><p>峇里 · 藍夢島 · 四王群島。生態爆炸。</p><span class="soon">整理中</span></div>
-    <div class="tile"><div class="emo">🦈</div><h3>更多</h3><p>馬爾地夫、紅海船宿… 逐步加入。</p><span class="soon">規劃中</span></div>
-  </div>
-</section>
-
-<section class="zone wrap reveal">
-  <div class="ztag">-25m ｜ 入門區</div>
+  <span class="ztag">2m ｜ 淺灘</span>
   <h2>新手上路</h2>
-  <p class="lead">第一次潛水?從這裡看懂證照怎麼考、要花多少。</p>
+  <p class="lead">還沒下水?先搞懂這些,再談考證。潛水不難,但有幾件事一定要先知道。</p>
+
+  <h3 style="margin:6px 0 12px;font-size:17px">🫧 下水前必懂 8 件事</h3>
+  <div class="grid g4">
+    <div class="card"><div class="emo">🫁</div><h3>水肺 vs 自由潛</h3><p>一個背氣瓶待在水下、一個閉氣下潛。先決定你想玩哪種。</p></div>
+    <div class="card"><div class="emo">👂</div><h3>平壓(耳壓)</h3><p>下潛耳朵會痛,學會捏鼻鼓氣;痛就停、上升一點再試,別硬撐。</p></div>
+    <div class="card"><div class="emo">🌬</div><h3>絕不憋氣</h3><p>水肺最重要的一條:永遠正常呼吸,憋氣上升可能肺部受傷。</p></div>
+    <div class="card"><div class="emo">👥</div><h3>潛伴制度</h3><p>永遠不要獨潛。潛伴互相照應,是潛水安全的核心。</p></div>
+    <div class="card"><div class="emo">⬆️</div><h3>慢上升+安全停留</h3><p>上升要慢,並在 5m 停留 3 分鐘,避免減壓病。</p></div>
+    <div class="card"><div class="emo">🤧</div><h3>身體條件</h3><p>感冒鼻塞別潛(壓不下去);潛水後 18–24h 內別搭飛機。</p></div>
+    <div class="card"><div class="emo">🥽</div><h3>裝備入門</h3><p>面鏡/蛙鞋/BCD/調節器/電腦錶。初期用租的就好,先玩再買。</p></div>
+    <div class="card"><div class="emo">🏁</div><h3>怎麼開始</h3><p>先「體驗潛水(DSD)」試水溫,喜歡再考 OWD 證照。</p></div>
+  </div>
+
+  <h3 style="margin:30px 0 12px;font-size:17px">🎫 潛水系統怎麼選(有分好幾家)</h3>
+  <div class="grid g2">
+    <table class="cmp">
+      <tr><th>水肺系統</th><th>特點</th></tr>
+      <tr><td>PADI</td><td>全球最大最普及,潛店最多</td></tr>
+      <tr><td>SSI</td><td>數位化、彈性,近年很熱</td></tr>
+      <tr><td>NAUI / CMAS</td><td>學術嚴謹,CMAS 為歐系</td></tr>
+      <tr><td>RAID</td><td>線上學科、新銳</td></tr>
+    </table>
+    <table class="cmp">
+      <tr><th>自由潛系統</th><th>特點</th></tr>
+      <tr><td>AIDA</td><td>競技標準,國際認可度高</td></tr>
+      <tr><td>Molchanovs</td><td>新銳、社群強,近年很紅</td></tr>
+      <tr><td>PADI / SSI Freediving</td><td>與水肺同體系,好銜接</td></tr>
+      <tr><td>Apnea Total</td><td>系統化教學</td></tr>
+    </table>
+  </div>
+  <p class="maphint">證照跨系統多半可互相銜接;先看你附近潛店教哪家最方便。</p>
+
+  <h3 style="margin:30px 0 12px;font-size:17px">🪜 課程里程碑(圖解)</h3>
   <div class="ladder">
-    <div class="step"><b>OWD</b><span>入門 · 限深18m</span></div>
-    <div class="step"><b>AOWD</b><span>進階 · 限深30m</span></div>
-    <div class="step"><b>Rescue</b><span>救援</span></div>
-    <div class="step"><b>DM</b><span>可帶潛</span></div>
+    <div class="lname">🤿 水肺 SCUBA(以 PADI 為例)</div>
+    <div class="steps">
+      <div class="step"><b>DSD</b><span>體驗潛水</span></div><span class="arw">→</span>
+      <div class="step"><b>OWD</b><span>入門・18m</span></div><span class="arw">→</span>
+      <div class="step"><b>AOWD</b><span>進階・30m</span></div><span class="arw">→</span>
+      <div class="step"><b>Rescue</b><span>救援</span></div><span class="arw">→</span>
+      <div class="step"><b>Specialty</b><span>專長</span></div><span class="arw">→</span>
+      <div class="step"><b>DM</b><span>可帶潛</span></div><span class="arw">→</span>
+      <div class="step"><b>Instructor</b><span>教練</span></div>
+    </div>
   </div>
-  <p style="margin-top:14px"><a href="https://github.com/sssunwl/SakiDive/blob/main/02_%E8%AA%B2%E7%A8%8B%E8%AD%89%E7%85%A7/%E8%AA%B2%E7%A8%8B%E8%AD%89%E7%85%A7%E8%B3%87%E6%BA%90.md" target="_blank">看完整考證與費用 →</a></p>
+  <div class="ladder">
+    <div class="lname">🫁 自由潛 FREEDIVE(以 AIDA 為例)</div>
+    <div class="steps">
+      <div class="step"><b>體驗</b><span>試閉氣</span></div><span class="arw">→</span>
+      <div class="step"><b>AIDA 1</b><span>理論/泳池</span></div><span class="arw">→</span>
+      <div class="step"><b>AIDA 2</b><span>~16–20m</span></div><span class="arw">→</span>
+      <div class="step"><b>AIDA 3</b><span>~24–30m</span></div><span class="arw">→</span>
+      <div class="step"><b>AIDA 4</b><span>~32–40m</span></div><span class="arw">→</span>
+      <div class="step"><b>Instructor</b><span>教練</span></div>
+    </div>
+  </div>
+  <p class="maphint">🚧 日後會把每級的課程內容、費用整理進來,並加上小測驗幫你自我檢測。</p>
 </section>
 
+<!-- 4m 潛點 -->
 <section class="zone wrap reveal">
-  <div class="ztag">-35m ｜ 深藍區</div>
+  <span class="ztag">4m ｜ 珊瑚礁</span>
+  <h2>泛亞洲潛點地圖</h2>
+  <p class="lead">點浮標 🛟 看每個潛點:看得到什麼、要注意什麼、船潛還是岸潛。用地圖 +/- 或雙擊縮放,一路潛到城市與潛點。</p>
+  <div id="map"></div>
+  <p class="maphint">目前收錄沖繩、台灣、菲律賓、帛琉、峇里。陸續增加中 🌏</p>
+</section>
+
+<!-- 5m 潛水實操 -->
+<section class="zone wrap reveal">
+  <span class="ztag">5m ｜ 深一點</span>
+  <h2>潛水實操</h2>
+  <p class="lead">已經有證、想自己揪團或規劃潛水?下水前先想清楚這幾件事。</p>
+  <div class="grid g4">
+    <div class="card"><div class="emo">🧭</div><h3>評估自己能力</h3><p>證照等級、近期潛水頻率、去過的最大深度、氣量與中性浮力控制。誠實面對現況。</p></div>
+    <div class="card"><div class="emo">⚖️</div><h3>對比潛點難度</h3><p>把潛點的深度/洋流/入水方式/能見度,對照你的能力——不逞強、不超綱。</p></div>
+    <div class="card"><div class="emo">🔍</div><h3>潛點分析</h3><p>查海況潮汐、洋流方向、入水/出水點、最大深度與無減壓時間、當地潛店資訊。</p></div>
+    <div class="card"><div class="emo">📋</div><h3>潛水計畫</h3><p>氣量規劃、隊形分工、失散處理、水面支援、緊急聯絡與最近減壓艙。</p></div>
+  </div>
+</section>
+
+<!-- 6m 技潛/專長 -->
+<section class="zone wrap reveal">
+  <span class="ztag">6m ｜ 更深藍</span>
+  <h2>技潛 &amp; 專長</h2>
+  <p class="lead">玩上癮了?這些是讓你潛得更深、更專精的下一步。</p>
+  <div class="grid g2">
+    <div class="card"><div class="emo">🎖</div><h3>專長 Specialty</h3><p>深潛、沉船、夜潛、放流、水中攝影、高氧 Nitrox、頂尖中性浮力… 針對單一技能深入。</p></div>
+    <div class="card"><div class="emo">⚙️</div><h3>技術潛水 Tec</h3><p>減壓潛水、多氣瓶、Trimix 混合氣、CCR 密閉循環。超出休閒範圍,需專門訓練與裝備。</p></div>
+  </div>
+</section>
+
+<!-- 生物圖鑑入口 -->
+<section class="zone wrap reveal" style="text-align:center">
+  <span class="ztag">🐠 特別企劃</span>
+  <h2>水下生物圖鑑</h2>
+  <p class="lead" style="margin:0 auto 18px">往下潛,看看不同深度住著誰。點一下生物,認識牠。</p>
+  <a class="cta" href="./creatures/">潛入生物圖鑑 →</a>
+</section>
+
+<!-- 海洋日誌 / 關於 -->
+<section class="zone wrap reveal">
+  <span class="ztag">-35m ｜ 深藍</span>
   <h2>海洋日誌</h2>
-  <p class="lead">潛水不只是玩。珊瑚、鯊魚、永續潛旅——我們也想把海留給下一代。</p>
-  <div class="grid">
-    <div class="tile"><div class="emo">🪸</div><h3>珊瑚與保育</h3><p>白化、復育、生物炭磚,泛亞洲海洋現場。</p></div>
-    <div class="tile"><div class="emo">🦈</div><h3>與鯊共存</h3><p>鬼蝠魟的百萬經濟、鯊魚週,認識而非恐懼。</p></div>
-    <div class="tile"><div class="emo">🌏</div><h3>永續潛旅</h3><p>防曬新規、負責任漁獵,做個更好的潛水員。</p></div>
+  <p class="lead">潛水不只是玩。珊瑚、鯊魚、永續潛旅——把海留給下一代。(專題陸續上線)</p>
+  <div class="grid g3">
+    <div class="card"><div class="emo">🪸</div><h3>珊瑚與保育</h3><p>白化、復育、生物炭磚,泛亞洲海洋現場。</p></div>
+    <div class="card"><div class="emo">🦈</div><h3>與鯊共存</h3><p>鬼蝠魟的百萬經濟、鯊魚週,認識而非恐懼。</p></div>
+    <div class="card"><div class="emo">🌏</div><h3>永續潛旅</h3><p>防曬新規、負責任漁獵,做個更好的潛水員。</p></div>
   </div>
 </section>
 
 <section class="zone wrap reveal">
-  <div class="ztag">-40m ｜ 海床</div>
+  <span class="ztag">-40m ｜ 海床</span>
   <h2>關於 DiveInOut</h2>
   <div class="about">
-    <p style="font-weight:300;line-height:2">
-    <strong style="color:#fff">DiveInOut</strong> 是一本泛亞洲的潛旅生活誌,由潛水員 <strong style="color:#fff">Saki</strong> 主理。<br>
-    我們每週整理華語與國際潛水圈的最新情報,把它變成新手敢下水、老手想追的內容——<br>
-    潛點、裝備、考證、海洋保育,還有那些讓你想立刻訂機票的水下風景。</p>
-    <div style="margin-top:16px">
-      <span class="pill">🐬 Saki 主理</span><span class="pill">泛亞洲潛旅</span>
-      <span class="pill">新手友善</span><span class="pill">每週更新</span>
+    <strong style="color:#fff">DiveInOut</strong> 是一本泛亞洲的潛旅生活誌,由潛水員 <strong style="color:#fff">Saki</strong> 主理。
+    我們每週整理華語與國際潛水圈的最新情報,把它變成新手敢下水、老手想追的內容。
+    <div style="margin-top:14px">
+      <span class="pill">🐬 Saki 主理</span><span class="pill">泛亞洲潛旅</span><span class="pill">新手友善</span><span class="pill">每週更新</span>
     </div>
   </div>
 </section>
 
-<footer>
-  DiveInOut · 潛旅生活誌(暫定名)· 資料引擎 SakiDiveDB<br>
-  內容僅供參考,潛水請以現場專業與官方公告為準
-</footer>
+<footer>DiveInOut · 潛旅生活誌(暫定名)· 資料引擎 SakiDiveDB<br>內容僅供參考,潛水請以現場專業與官方公告為準</footer>
 
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 // 浮泡
 const bub=document.getElementById("bub");
-for(let i=0;i<14;i++){const b=document.createElement("i");
-  const s=4+Math.random()*12;b.style.left=Math.random()*100+"%";
-  b.style.width=b.style.height=s+"px";b.style.animationDuration=(6+Math.random()*10)+"s";
-  b.style.animationDelay=(-Math.random()*10)+"s";bub.appendChild(b);}
-
+for(let i=0;i<14;i++){const b=document.createElement("i");const s=4+Math.random()*11;
+  b.style.left=Math.random()*100+"%";b.style.width=b.style.height=s+"px";
+  b.style.animationDuration=(6+Math.random()*10)+"s";b.style.animationDelay=(-Math.random()*10)+"s";bub.appendChild(b);}
 // 深度計
 const dm=document.getElementById("dm");
 addEventListener("scroll",()=>{const h=document.body.scrollHeight-innerHeight;
   dm.textContent=Math.round((scrollY/h)*40);},{passive:true});
-
-// 進場動畫
-const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add("in");io.unobserve(e.target);}}),{threshold:.15});
+// 進場
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add("in");io.unobserve(e.target);}}),{threshold:.12});
 document.querySelectorAll(".reveal").forEach(el=>io.observe(el));
 
-// 本週情報精選(抓最新簡報的今日重點)
+// 0m 本週情報 → 卡片
 const RAW="https://raw.githubusercontent.com/sssunwl/SakiDive/main/";
 const API="https://api.github.com/repos/sssunwl/SakiDive/contents/00_%E6%AF%8F%E6%97%A5%E7%B0%A1%E5%A0%B1";
-(async()=>{const L=document.getElementById("newsList");try{
+(async()=>{const G=document.getElementById("newsGrid");try{
   const list=await(await fetch(API)).json();
   const latest=list.filter(f=>f.name.endsWith(".md")).map(f=>f.name).sort().pop();
-  let md=await(await fetch(RAW+"00_%E6%AF%8F%E6%97%A5%E7%B0%A1%E5%A0%B1/"+encodeURIComponent(latest))).text();
+  const md=await(await fetch(RAW+"00_%E6%AF%8F%E6%97%A5%E7%B0%A1%E5%A0%B1/"+encodeURIComponent(latest))).text();
   const m=md.match(/##\s*🔑[^\n]*\n([\s\S]*?)(?=\n##\s)/);
-  if(!m){L.innerHTML="<li>本週情報整理中…</li>";return;}
-  // 取每個 * ** 標題 : 內文
-  const items=[...m[1].matchAll(/\*\s+\*\*(.+?)\*\*[:：]([\s\S]*?)(?=\n\*\s+\*\*|\n*$)/g)].slice(0,5);
-  L.innerHTML=items.map(it=>{
-    const body=it[2].replace(/\[[^\]]*\]\([^)]*\)/g,"").replace(/→\s*對我方啟示[\s\S]*/,"")
-      .replace(/抓取:[\d-]+/g,"").replace(/⚠️需覆核/g,"").replace(/\s+/g," ").trim();
-    return `<li><strong>${it[1]}</strong><br>${body.slice(0,90)}…</li>`;
-  }).join("")||"<li>本週情報整理中…</li>";
-}catch(e){L.innerHTML="<li>情報載入中,稍後再來看看 🐟</li>";}})();
+  if(!m){G.innerHTML="<div class='card'>本週情報整理中…</div>";return;}
+  const items=[...m[1].matchAll(/\*\s+\*\*(.+?)\*\*[:：]([\s\S]*?)(?=\n\*\s+\*\*|$)/g)].slice(0,6);
+  const emo=["🌊","🐠","🧭","🎣","🪸","⚓"];
+  G.innerHTML=items.map((it,i)=>{
+    let body=it[2].replace(/\[[^\]]*\]\([^)]*\)/g,"").replace(/→\s*對我方啟示[\s\S]*/,"")
+      .replace(/抓取:[\d-]+/g,"").replace(/⚠️需覆核/g,"").replace(/[\*→]/g,"").replace(/\s+/g," ").trim();
+    return `<div class="card"><div class="emo">${emo[i%emo.length]}</div>
+      <h3>${it[1]}</h3><p>${body.slice(0,84)}…</p></div>`;
+  }).join("");
+}catch(e){G.innerHTML="<div class='card'>情報載入中,稍後再來 🐟</div>";}})();
+
+// 4m 地圖
+const map=L.map('map',{scrollWheelZoom:false}).setView([13,124],3.2);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+  {attribution:'© OpenStreetMap © CARTO',maxZoom:16}).addTo(map);
+fetch('spots.json').then(r=>r.json()).then(d=>{
+  d.spots.forEach(s=>{
+    const icon=L.divIcon({className:'buoy',html:'🛟',iconSize:[24,24]});
+    const m=L.marker([s.lat,s.lng],{icon}).addTo(map);
+    m.bindTooltip(s.name,{direction:'top',offset:[0,-6]});
+    m.bindPopup(`<div class="pop"><h4>${s.name}</h4><div class="pl">${s.place}</div>
+      <span class="tag">${s.level}</span><span class="tag">${s.type}</span>
+      <p><b>🗓 季節</b>　${s.season}${s.warn?' ⚠️需覆核':''}</p>
+      <p><b>👀 看得到</b>　${s.see}</p>
+      <p><b>❗ 注意</b>　${s.note}</p></div>`);
+  });
+});
 </script>
 </body>
 </html>

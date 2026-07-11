@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>水下生物圖鑑 ｜ DiveInOut</title>
+<meta name="description" content="往下潛,看看不同深度住著誰。">
+<style>
+  :root{--aqua:#5fd3d0;--deep:#04283f}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{font-family:"PingFang TC","Noto Sans TC",-apple-system,"Segoe UI",sans-serif;color:#eaf6f7;background:#010e15;overflow-x:hidden}
+  a{color:var(--aqua);text-decoration:none}
+  /* 由淺到深(比首頁更深沉,漸入幽暗) */
+  .sea{background:linear-gradient(180deg,#8fdcea 0%,#46b6cc 8%,#1e88a4 20%,#0c6484 34%,
+     #073f57 50%,#052c3f 64%,#03202e 78%,#010e15 92%)}
+  .bubbles{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+  .bubbles i{position:absolute;bottom:-40px;border-radius:50%;background:rgba(255,255,255,.14);animation:rise linear infinite}
+  @keyframes rise{to{transform:translateY(-105vh) scale(1.4);opacity:0}}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px;position:relative;z-index:2}
+
+  .depth{position:fixed;top:50%;right:12px;transform:translateY(-50%);z-index:5;text-align:center;
+    font-variant-numeric:tabular-nums;opacity:.85;font-size:11px}
+  .depth b{display:block;font-size:19px;font-weight:800;color:#fff}
+  .depth .line{width:2px;height:120px;margin:6px auto;background:linear-gradient(#fff6,transparent)}
+
+  .top{text-align:center;padding:88px 20px 20px}
+  .top h1{font-size:clamp(30px,7vw,52px);font-weight:800;letter-spacing:2px}
+  .top p{opacity:.9;margin-top:10px;font-weight:300}
+  .back{display:inline-block;margin-top:16px;font-size:13px;opacity:.85}
+  .cue{margin-top:26px;font-size:13px;opacity:.8;animation:bob 2s infinite}
+  @keyframes bob{50%{transform:translateY(8px)}}
+
+  .zone{padding:56px 0 40px}
+  .zlabel{display:flex;align-items:baseline;gap:12px;margin-bottom:8px}
+  .zlabel .d{font-size:26px;font-weight:800;color:var(--aqua)}
+  .zlabel h2{font-size:20px;font-weight:700}
+  .zdesc{opacity:.8;font-weight:300;margin-bottom:22px;font-size:14px}
+
+  .row{display:flex;flex-wrap:wrap;gap:22px}
+  .crt{width:120px;text-align:center;cursor:pointer;background:none;border:0;color:inherit;font:inherit}
+  .orb{width:96px;height:96px;border-radius:50%;margin:0 auto 8px;display:flex;align-items:center;justify-content:center;
+    font-size:46px;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.22),rgba(255,255,255,.05));
+    border:1px solid rgba(255,255,255,.2);transition:transform .3s,box-shadow .3s;animation:float 5s ease-in-out infinite}
+  .crt:nth-child(2n) .orb{animation-delay:-1.5s}.crt:nth-child(3n) .orb{animation-delay:-3s}
+  @keyframes float{50%{transform:translateY(-9px)}}
+  .crt:hover .orb{transform:scale(1.09);box-shadow:0 0 26px -4px var(--aqua)}
+  .crt b{display:block;font-size:14px}.crt span{font-size:11px;opacity:.7}
+
+  /* 資訊面板 */
+  .sheet{position:fixed;inset:0;z-index:20;display:none;align-items:center;justify-content:center;padding:20px;
+    background:rgba(1,14,21,.6);backdrop-filter:blur(4px)}
+  .sheet.on{display:flex;animation:fade .25s}
+  @keyframes fade{from{opacity:0}}
+  .panel{max-width:420px;width:100%;background:rgba(6,40,57,.82);border:1px solid rgba(255,255,255,.18);
+    border-radius:22px;padding:26px;position:relative;animation:pop .3s}
+  @keyframes pop{from{transform:translateY(18px);opacity:.6}}
+  .panel .big{font-size:64px;text-align:center}
+  .panel h3{font-size:22px;text-align:center;margin:6px 0 2px}
+  .panel .sub{text-align:center;opacity:.75;font-size:13px;margin-bottom:16px}
+  .panel .field{margin:12px 0;font-weight:300;line-height:1.7}
+  .panel .field b{color:var(--aqua);font-weight:700;display:block;font-size:13px;margin-bottom:2px}
+  .close{position:absolute;top:14px;right:18px;font-size:22px;cursor:pointer;opacity:.7;background:none;border:0;color:#fff}
+  footer{text-align:center;padding:40px 20px 60px;font-size:12px;opacity:.65}
+</style>
+</head>
+<body class="sea">
+<div class="bubbles" id="bub"></div>
+<div class="depth"><span>▽</span><div class="line"></div><b id="dm">0</b>m</div>
+
+<header class="top">
+  <h1>🐠 水下生物圖鑑</h1>
+  <p>往下潛,看看不同深度住著誰。點一下生物,認識牠。</p>
+  <a class="back" href="../">← 回 DiveInOut</a>
+  <div class="cue">▽ 往下潛</div>
+</header>
+
+<main class="wrap" id="zones"></main>
+
+<div class="sheet" id="sheet"><div class="panel">
+  <button class="close" id="close">×</button>
+  <div class="big" id="pBig"></div>
+  <h3 id="pName"></h3>
+  <div class="sub" id="pSub"></div>
+  <div class="field"><b>特性</b><span id="pTrait"></span></div>
+  <div class="field"><b>可見地</b><span id="pWhere"></span></div>
+  <div class="field"><b>潛水小提醒</b><span id="pTip"></span></div>
+</div></div>
+
+<footer>水下生物圖鑑 · DiveInOut ｜ v1 用統一扁平風,日後可升級專屬插畫<br>生態資訊供參考,實際遇見依海況與運氣 🍀</footer>
+
+<script>
+const bub=document.getElementById("bub");
+for(let i=0;i<12;i++){const b=document.createElement("i");const s=4+Math.random()*11;
+  b.style.left=Math.random()*100+"%";b.style.width=b.style.height=s+"px";
+  b.style.animationDuration=(6+Math.random()*10)+"s";b.style.animationDelay=(-Math.random()*10)+"s";bub.appendChild(b);}
+const dm=document.getElementById("dm");
+addEventListener("scroll",()=>{const h=document.body.scrollHeight-innerHeight;
+  dm.textContent=Math.round((scrollY/h)*45);},{passive:true});
+
+const ZONES=[
+ {d:"0–5m",t:"陽光帶 · 淺灘",desc:"陽光充足、最熱鬧的一層,新手最常遇見的朋友都在這。",c:[
+   {e:"🐢",n:"綠蠵龜",dep:"0–20m",trait:"溫和的草食性海龜,常在淺礁啃食海藻;呼吸要浮出水面。",where:"台灣小琉球(幾乎必見)、沖繩慶良間、菲律賓。",tip:"保持距離、別觸摸、別擋住牠上浮的路。"},
+   {e:"🐠",n:"小丑魚",dep:"1–15m",trait:"住在海葵裡、和海葵共生,領域性強會來趕你。",where:"泛亞洲珊瑚礁區普遍。",tip:"別戳海葵;牠護家會衝過來很正常。"},
+   {e:"🐟",n:"雀鯛/擬金眼鯛群",dep:"0–15m",trait:"成千結群、隨光閃動,是礁區的背景樂。",where:"各地珊瑚礁。",tip:"穿過魚群時放慢動作,畫面最美。"}
+ ]},
+ {d:"5–18m",t:"珊瑚礁帶",desc:"色彩最爆炸的一層,OWD 新手主要活動範圍。",c:[
+   {e:"🦋",n:"蝴蝶魚",dep:"3–20m",trait:"扁身、艷色,常成雙成對出現,是健康珊瑚礁的指標。",where:"泛亞洲礁區。",tip:"看到成對蝴蝶魚,代表這片礁況不錯。"},
+   {e:"🦂",n:"獅子魚",dep:"5–30m",trait:"背鰭如羽扇、美麗但有毒棘,動作慢。",where:"礁區、沉船縫隙。",tip:"⚠️ 純欣賞別碰,毒棘刺到很痛。"},
+   {e:"🐙",n:"章魚",dep:"2–30m",trait:"變色與擬態高手、極聰明,常縮在洞裡。",where:"礁石、沙地洞穴。",tip:"慢慢看牠變色,別伸手掏洞。"},
+   {e:"🐡",n:"河魨",dep:"3–20m",trait:"受驚會鼓成球,有些具毒。",where:"礁區、潟湖。",tip:"別嚇牠,鼓氣對牠是壓力。"}
+ ]},
+ {d:"18–30m",t:"深礁 · 峭壁",desc:"AOWD 進階深度,大一點的傢伙開始出現。",c:[
+   {e:"🦈",n:"白鰭礁鯊",dep:"8–40m",trait:"性情溫馴,白天常靜靜趴在礁下休息。",where:"帛琉、菲律賓、沖繩外礁。",tip:"別追、別擋路,牠通常比你更怕你。"},
+   {e:"🥏",n:"魟魚",dep:"5–30m",trait:"扁平貼沙,尾部有毒刺,靠濾沙覓食。",where:"沙地、峭壁腳。",tip:"⚠️ 過沙地別踩,採『拖步』提醒牠避開。"},
+   {e:"🐟",n:"梭魚群 Barracuda",dep:"10–30m",trait:"成群旋成銀色風暴,畫面震撼。",where:"菲律賓巴里卡薩最經典。",tip:"待在群體外圍欣賞漩渦,別衝散。"},
+   {e:"🐠",n:"拿破崙魚(蘇眉)",dep:"5–40m",trait:"額頭隆起的巨型隆頭魚,好奇又親人。",where:"帛琉、大堡礁一帶。",tip:"保育類,遇到是福氣,勿餵食。"}
+ ]},
+ {d:"30–40m",t:"深藍帶",desc:"技術/進階深度,大物的舞台。休閒潛水的下限了。",c:[
+   {e:"🛸",n:"鬼蝠魟 Manta",dep:"3–40m",trait:"翼展可達 5m+ 的溫和巨獸,濾食浮游生物,愛在清潔站盤旋。",where:"峇里 Nusa Penida(4–5 月最佳)、馬爾地夫。",tip:"待在下方別擋牠、別追,牠好奇會自己靠近。"},
+   {e:"🌕",n:"翻車魚 Mola Mola",dep:"深冷水",trait:"世界最重硬骨魚,樣子像一顆會游的頭,罕見。",where:"峇里 Nusa Penida(8–10 月冷水上湧)⚠️。",tip:"看到是超級幸運,保持距離安靜欣賞。"},
+   {e:"🦈",n:"鎚頭鯊",dep:"15–40m+",trait:"頭如槌、常成群洄游,神秘又壯觀。",where:"深潛點、某些洋流交會處。",tip:"多在較深冷水,需經驗與良好氣量規劃。"}
+ ]},
+ {d:"40m+",t:"幽暗帶",desc:"陽光到不了、休閒潛水的禁區——交給技術潛水與深海科學。",c:[
+   {e:"🎣",n:"燈籠魚等深海生物",dep:"200m+",trait:"自體發光在黑暗中誘捕獵物,人類難以親見。",where:"深海(非休閒潛水範圍)。",tip:"這裡只用知識潛入 🧠——別真的下去。"}
+ ]}
+];
+
+const zc=document.getElementById("zones");
+zc.innerHTML=ZONES.map((z,zi)=>`<section class="zone">
+  <div class="zlabel"><span class="d">${z.d}</span><h2>${z.t}</h2></div>
+  <p class="zdesc">${z.desc}</p>
+  <div class="row">${z.c.map((c,ci)=>`<button class="crt" data-z="${zi}" data-c="${ci}">
+    <div class="orb">${c.e}</div><b>${c.n}</b><span>${c.dep}</span></button>`).join("")}</div>
+</section>`).join("");
+
+const sheet=document.getElementById("sheet");
+function open(c){document.getElementById("pBig").textContent=c.e;
+  document.getElementById("pName").textContent=c.n;
+  document.getElementById("pSub").textContent="常見深度 "+c.dep;
+  document.getElementById("pTrait").textContent=c.trait;
+  document.getElementById("pWhere").textContent=c.where;
+  document.getElementById("pTip").textContent=c.tip;sheet.classList.add("on");}
+zc.querySelectorAll(".crt").forEach(b=>b.onclick=()=>open(ZONES[b.dataset.z].c[b.dataset.c]));
+document.getElementById("close").onclick=()=>sheet.classList.remove("on");
+sheet.onclick=e=>{if(e.target===sheet)sheet.classList.remove("on");};
+addEventListener("keydown",e=>{if(e.key==="Escape")sheet.classList.remove("on");});
+</script>
+</body>
+</html>

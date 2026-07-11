@@ -1,0 +1,90 @@
+{
+  "updated": "2026-07-11",
+  "note": "泛亞洲潛點資料。季節/生態會變動,標 warn 者出發前請覆核。座標為概略中心點。",
+  "spots": [
+    {
+      "id": "okinawa-bluecave", "name": "青之洞窟", "place": "日本・沖繩 恩納村",
+      "lat": 26.44, "lng": 127.77, "level": "新手", "type": "岸潛 / 浮潛",
+      "season": "4–11 月最佳(冬季常關)", "warn": true,
+      "see": "陽光穿透的藍光洞穴、不怕人的熱帶魚群",
+      "note": "沖繩人氣 No.1,適合第一次;建議早上去避人潮,冬季受東北風影響常關閉。"
+    },
+    {
+      "id": "kerama", "name": "慶良間群島", "place": "日本・沖繩",
+      "lat": 26.18, "lng": 127.35, "level": "中級", "type": "船潛(一日船宿)",
+      "season": "4–11 月", "warn": false,
+      "see": "『慶良間藍』透明度常達 30m+、海龜、珊瑚大景",
+      "note": "日本國立公園,海龜棲息地;多為一日船潛含午餐 2–3 支氣瓶。"
+    },
+    {
+      "id": "miyako", "name": "宮古島", "place": "日本・沖繩",
+      "lat": 24.80, "lng": 125.30, "level": "中～進階", "type": "船潛",
+      "season": "4–11 月", "warn": false,
+      "see": "100+ 潛點、拱門洞穴等夢幻地形",
+      "note": "地形潛天堂,適合想玩洞穴、光影的進階者。"
+    },
+    {
+      "id": "kenting", "name": "墾丁", "place": "台灣・屏東",
+      "lat": 21.95, "lng": 120.78, "level": "新手", "type": "岸潛 / 船潛",
+      "season": "四季可潛,冬季能見度反而好;水溫 22–29°C", "warn": false,
+      "see": "300+ 種珊瑚、1000+ 種魚;春天珊瑚產卵季",
+      "note": "台灣最南端,交通方便、潛店多,新手友善。"
+    },
+    {
+      "id": "green-island", "name": "綠島", "place": "台灣・台東",
+      "lat": 22.66, "lng": 121.49, "level": "新手～中級", "type": "岸潛 / 船潛",
+      "season": "四季(冬季東北季風時改西南側);能見度 25–30m", "warn": false,
+      "see": "大香菇(巨型微孔珊瑚)、鋼鐵礁、海龜;水溫 21–25°C",
+      "note": "公認台灣最佳潛場,地形與生態俱佳。"
+    },
+    {
+      "id": "xiaoliuqiu", "name": "小琉球", "place": "台灣・屏東",
+      "lat": 22.34, "lng": 120.37, "level": "新手", "type": "岸潛 / 浮潛",
+      "season": "3–11 月最佳(春秋海象最穩)", "warn": false,
+      "see": "綠蠵龜幾乎必見(常駐 300–400 隻!)、軟珊瑚",
+      "note": "『海龜的故鄉』,深度僅 6–12m,超適合第一次看海龜。"
+    },
+    {
+      "id": "moalboal", "name": "墨寶 Moalboal", "place": "菲律賓・宿霧",
+      "lat": 9.95, "lng": 123.39, "level": "新手～中級", "type": "岸潛 / 船潛",
+      "season": "全年;11–5 月乾季較穩", "warn": true,
+      "see": "百萬『沙丁魚風暴』、海龜、峭壁",
+      "note": "岸邊就能潛到沙丁魚群,CP 值極高的潛旅入門地。"
+    },
+    {
+      "id": "balicasag", "name": "巴里卡薩 Balicasag", "place": "菲律賓・薄荷島",
+      "lat": 9.52, "lng": 123.68, "level": "中級", "type": "船潛",
+      "season": "全年;3–6 月最穩", "warn": true,
+      "see": "壯麗海底峭壁、成群梭魚(barracuda)、海龜、傑克風暴",
+      "note": "薄荷島明星潛點,大魚群漩渦畫面震撼。"
+    },
+    {
+      "id": "oslob", "name": "歐斯陸 Oslob", "place": "菲律賓・宿霧",
+      "lat": 9.46, "lng": 123.38, "level": "新手", "type": "浮潛 / 船潛",
+      "season": "全年", "warn": false,
+      "see": "近距離鯨鯊",
+      "note": "⚠️ 餵食觀光爭議大,對野生動物有影響,請自行斟酌是否參與。"
+    },
+    {
+      "id": "blue-corner", "name": "藍角 Blue Corner", "place": "帛琉",
+      "lat": 7.13, "lng": 134.22, "level": "進階", "type": "船潛(強流)",
+      "season": "全年;乾季 11–5 月", "warn": true,
+      "see": "灰礁鯊群、拿破崙魚、梭魚牆、大物天堂",
+      "note": "世界級大物潛點,但洋流強、需用『勾流鉤』,建議有經驗再來。"
+    },
+    {
+      "id": "tulamben", "name": "圖藍本 Tulamben", "place": "印尼・峇里島",
+      "lat": 8.27, "lng": 115.59, "level": "新手～中級", "type": "岸潛",
+      "season": "旱季 5–11 月最佳", "warn": true,
+      "see": "USAT Liberty 二戰沉船、微距生物、豐富礁魚",
+      "note": "岸潛就能到沉船,新手也能體驗沉船潛水的經典地。"
+    },
+    {
+      "id": "nusa-penida", "name": "Nusa Penida", "place": "印尼・峇里島",
+      "lat": 8.73, "lng": 115.53, "level": "中～進階", "type": "船潛(流較強)",
+      "season": "Manta 4–5 月最佳;Mola Mola 翻車魚 8–10 月", "warn": true,
+      "see": "Manta Ray 鬼蝠魟、Mola Mola 翻車魚、礁鯊、海龜",
+      "note": "看 Manta 與翻車魚的夢幻地,水溫偶爾驟降到 21°C,流較強。"
+    }
+  ]
+}
