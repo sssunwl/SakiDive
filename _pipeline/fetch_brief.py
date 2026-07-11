@@ -14,7 +14,7 @@ SakiDiveDB 潛水每日簡報抓取器
     python3 fetch_brief.py --dry      # 只印出結果不寫檔(測試用)
     python3 fetch_brief.py --push     # 抓完後 git commit + push 到 GitHub
 """
-import json, os, re, sys, subprocess
+import json, os, re, sys, time, subprocess
 import urllib.request, urllib.error, urllib.parse, datetime
 
 # ---- 設定 ----
@@ -26,12 +26,23 @@ OUT_DIR = os.path.join(DB_ROOT, "00_每日簡報")
 # 要掃描的來源(可自由增減)。標題只是給人看的備註。
 # 排序 = 重要性:水肺潛水(scuba)/綜合為主,自由潛水為輔。
 SOURCES = [
+    # 中文・綜合/產業
     ("EZDIVE 易潛雜誌(水肺+自由+產業)",
      "https://www.ezdivemag.com/zh/"),
     ("BlueTrend 藍色脈動(潛水/海洋)",
      "https://bluetrend.media/"),
+    ("潛進台灣 Taiwan Dive In(潛點/裝備/課程)",
+     "https://www.taiwan-diving.org/"),
+    # 中文・台灣時事(安全/法規)
     ("自由時報-自由潛水(自潛面向)",
      "https://news.ltn.com.tw/topic/%E8%87%AA%E7%94%B1%E6%BD%9B%E6%B0%B4"),
+    # 國際・生活風/潛旅(英文,Gemini 會翻中)
+    ("PADI Blog(國際潛旅/裝備/生活)",
+     "https://blog.padi.com/"),
+    ("DeeperBlue(國際新聞/自潛/潛旅)",
+     "https://www.deeperblue.com/"),
+    ("ScubaDiverLife(生活風)",
+     "https://scubadiverlife.com/"),
 ]
 
 MAX_CHARS_PER_SOURCE = 6000   # 控制送進 Gemini 的量 = 控制成本
@@ -65,6 +76,9 @@ def build_prompt(today, blocks):
 本資料庫負責人 Saki 是**專業水肺潛水(scuba)潛水員,同時也玩自由潛水**。
 涵蓋範疇以**水肺潛水為主軸**,並包含自由潛水、潛水產業、海洋生態、裝備、潛點;
 **不要只偏重自由潛水**——scuba 相關(考證、裝備、船潛、深潛、水下攝影、海洋保育)同等重要。
+本簡報服務「**DiveInOut 潛旅生活誌**」——走**生活風、新手友善、泛亞洲潛旅**;
+重點多放潛旅、潛點體驗、裝備開箱、入門知識、海洋生活,別只有硬邦邦的新聞。
+**部分來源是英文站,請翻成流暢的繁體中文。**
 以下是我抓到的幾個潛水相關網頁的節錄文字。請整理成一份「潛水每日簡報」的 Markdown。
 
 嚴格規則(很重要):
@@ -93,23 +107,35 @@ def build_prompt(today, blocks):
 """
 
 
-def call_gemini(key, prompt):
+def call_gemini(key, prompt, retries=4):
     url = (f"https://generativelanguage.googleapis.com/v1beta/models/"
            f"{MODEL}:generateContent?key={key}")
     body = json.dumps({"contents": [{"parts": [{"text": prompt}]}]}).encode()
-    req = urllib.request.Request(url, data=body,
-                                 headers={"Content-Type": "application/json"})
-    try:
-        resp = urllib.request.urlopen(req, timeout=90).read()
-    except urllib.error.HTTPError as e:
-        return None, f"Gemini HTTP {e.code}: {e.read().decode('utf-8','ignore')[:300]}"
-    except Exception as e:
-        return None, f"Gemini 呼叫失敗: {e}"
-    d = json.loads(resp)
-    try:
-        return d["candidates"][0]["content"]["parts"][0]["text"], None
-    except (KeyError, IndexError):
-        return None, f"Gemini 回應格式異常: {json.dumps(d)[:300]}"
+    last = "未知錯誤"
+    for attempt in range(retries):
+        req = urllib.request.Request(url, data=body,
+                                     headers={"Content-Type": "application/json"})
+        try:
+            resp = urllib.request.urlopen(req, timeout=120).read()
+            d = json.loads(resp)
+            return d["candidates"][0]["content"]["parts"][0]["text"], None
+        except urllib.error.HTTPError as e:
+            last = f"Gemini HTTP {e.code}: {e.read().decode('utf-8','ignore')[:160]}"
+            if e.code in (429, 500, 503) and attempt < retries - 1:
+                wait = 6 * (attempt + 1)
+                print(f"  …Gemini 忙碌({e.code}),{wait}s 後重試({attempt+1}/{retries})")
+                time.sleep(wait)
+                continue
+            return None, last
+        except (KeyError, IndexError):
+            return None, "Gemini 回應格式異常(可能被安全過濾或空回應)"
+        except Exception as e:
+            last = f"Gemini 呼叫失敗: {e}"
+            if attempt < retries - 1:
+                time.sleep(6 * (attempt + 1))
+                continue
+            return None, last
+    return None, last
 
 
 def fix_source_urls(md, sources):
