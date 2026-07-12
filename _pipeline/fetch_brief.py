@@ -282,6 +282,12 @@ def main():
         f.write(md)
     print(f"\n✅ 已寫入 {out}")
 
+    try:  # 鏡射到 Discord #n-saki(失敗不影響主流程)
+        from _discord import notify_discord
+        notify_discord(f"🤿 SakiDiveDB 本週潛水簡報已更新（{today}）\n{out}")
+    except Exception:
+        pass
+
     ipath = append_insight(DB_ROOT, today, extract_insight(md))
     if ipath:
         print(f"✅ 綜合啟示已累積 → {ipath}")
