@@ -29,7 +29,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       - name: 研究並豐富今日內容
-        uses: google-github-actions/run-gemini-cli@v1
+        uses: google-github-actions/run-gemini-cli@v0.1.22
         with:
           gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
           gemini_model: gemini-2.5-flash
