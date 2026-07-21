@@ -279,11 +279,7 @@
   <div class="lab mono">35.0M — LOG / 海洋日誌</div>
   <h2>海洋日誌</h2>
   <p class="lead">潛水不只是玩。珊瑚、鯊魚、永續潛旅——把海留給下一代。(專題陸續上線)</p>
-  <div class="grid g3">
-    <div class="card"><div class="emo">🪸</div><h3>珊瑚與保育</h3><p>白化、復育、生物炭磚,泛亞洲海洋現場。</p></div>
-    <div class="card"><div class="emo">🦈</div><h3>與鯊共存</h3><p>鬼蝠魟的百萬經濟、鯊魚週,認識而非恐懼。</p></div>
-    <div class="card"><div class="emo">🌏</div><h3>永續潛旅</h3><p>防曬新規、負責任漁獵,做個更好的潛水員。</p></div>
-  </div>
+  <div class="grid g3" id="weeklyGrid"><div class="card">本週精選整理中…</div></div>
 </section>
 
 <section class="zone wrap reveal" id="about">
@@ -370,6 +366,14 @@ function openNews(t,b){const o=document.createElement("div");
     <p style="color:var(--dim);font-weight:300;line-height:1.8">${b}</p>
     <div style="margin-top:16px"><a href="https://github.com/sssunwl/SakiDive" target="_blank" style="font-size:12px">看完整簡報與來源 ↗</a></div></div>`;
   o.onclick=e=>{if(e.target===o)o.remove()};document.body.appendChild(o);}
+
+// 海洋日誌：每週編輯從已查證資料中挑選，資料由 GitHub Actions 寫入 weekly.json。
+const esc=s=>String(s||"").replace(/[&<>\"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"})[c]);
+(async()=>{const G=document.getElementById("weeklyGrid");try{
+  const d=await(await fetch("./weekly.json",{cache:"no-store"})).json();
+  if(!Array.isArray(d.items)||!d.items.length){G.innerHTML='<div class="card">本週精選整理中，先去看看上方情報 🐟</div>';return;}
+  G.innerHTML=d.items.slice(0,3).map(x=>`<article class="card"><div class="emo">${esc(x.emoji||"🌊")}</div><div class="mono" style="color:var(--accent);font-size:11px">${esc(x.category||"本週精選")}</div><h3>${esc(x.title)}</h3><p>${esc(x.summary)}</p><a href="${esc(x.source_url)}" target="_blank" rel="noopener" style="font-size:12px">來源：${esc(x.source_name||"查看資料")} ↗</a></article>`).join("");
+}catch(e){G.innerHTML='<div class="card">本週精選載入中，稍後再來 🐟</div>';}})();
 
 // 風格化暗色世界地圖(無圖磚:海=深色底、陸=向量色塊)
 const map=L.map('map',{scrollWheelZoom:false,zoomSnap:0,zoomDelta:.5,minZoom:2,maxZoom:11,

@@ -1,0 +1,40 @@
+name: Saki 每週 DiveInOut 整編
+
+on:
+  schedule:
+    # 每週日 01:00 UTC = 日本時間 10:00；避開週一的每日任務。
+    - cron: "0 1 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: saki-weekly-diveinout-digest
+  cancel-in-progress: false
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: true
+          fetch-depth: 0
+
+      - name: 設定提交身分
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: 整編為 DiveInOut 本週精選
+        uses: google-github-actions/run-gemini-cli@v0.1.22
+        env:
+          GEMINI_CLI_TRUST_WORKSPACE: "true"
+        with:
+          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+          gemini_model: gemini-2.5-flash
+          prompt: >-
+            讀取並完整執行 .github/prompts/weekly-diveinout-digest.md。
+            這是排程任務，請直接完成整理與提交，不要只提出建議。
