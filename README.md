@@ -64,9 +64,9 @@ launchctl list | grep sakidivedb
 
 ## GitHub 雲端排程
 
-`.github/workflows/monthly-content-enrichment.yml` 會在**每月 1 日日本時間 10:00**啟動 Codex，依 `內容路線圖.md` 研究並完成 1–2 個小項目、commit 後推送到 `main`。它不需要本機開機。
+`.github/workflows/daily-content-enrichment.yml` 會在**每天日本時間 10:00**啟動 Gemini，依 `內容路線圖.md` 研究並完成 1 個小項目、commit 後推送到 `main`。它不需要本機開機。
 
-首次啟用前，到 GitHub repository 的 **Settings → Secrets and variables → Actions** 新增 repository secret：`OPENAI_API_KEY`。此為 OpenAI API key（按用量計費），不是 ChatGPT 訂閱帳號的使用額度。也可在 Actions 頁手動執行 **Saki 每月內容豐富化** 測試。
+首次啟用前，到 GitHub repository 的 **Settings → Secrets and variables → Actions** 新增 repository secret：`GEMINI_API_KEY`。可使用現有的 Google AI Studio Gemini API key；免費額度有用量上限，因此排程刻意限制為每天一個小項目。也可在 Actions 頁手動執行 **Saki 每日內容豐富化** 測試。
 
 > ⚠️ 自動代理會直接寫入內容；潛水安全、法規與價格仍應在公開宣傳前人工覆核。
 
