@@ -3,6 +3,11 @@ name: Saki 每日內容豐富化
 on:
   # 2026-09-05：停用排程，避免 Gemini API 額度不足時持續寄送失敗通知。
   workflow_dispatch:
+    inputs:
+      task_override:
+        description: 測試用題目（選填；有值時不從內容路線圖選題）
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -27,8 +32,43 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+      - name: 決定本次題目
+        id: select_task
+        env:
+          TASK_OVERRIDE: ${{ inputs.task_override }}
+        shell: bash
+        run: |
+          if [[ -n "${TASK_OVERRIDE}" ]]; then
+            echo "task=${TASK_OVERRIDE}" >> "${GITHUB_OUTPUT}"
+            echo "line_number=" >> "${GITHUB_OUTPUT}"
+            echo "from_roadmap=false" >> "${GITHUB_OUTPUT}"
+            echo "has_task=true" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          roadmap = Path("內容路線圖.md")
+          for line_number, line in enumerate(roadmap.read_text(encoding="utf-8").splitlines(), 1):
+              if line.startswith("- [ ] "):
+                  task = line.removeprefix("- [ ] ").strip()
+                  with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+                      output.write(f"task={task}\n")
+                      output.write(f"line_number={line_number}\n")
+                      output.write("from_roadmap=true\n")
+                      output.write("has_task=true\n")
+                  break
+          else:
+              print("::notice::內容路線圖沒有未完成項目，本次跳過")
+              with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+                  output.write("has_task=false\n")
+          PY
+
       - name: 檢查 Gemini API 額度
         id: gemini_preflight
+        if: steps.select_task.outputs.has_task == 'true'
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         shell: bash
@@ -66,15 +106,65 @@ jobs:
           esac
 
       - name: 研究並豐富今日內容
-        if: steps.gemini_preflight.outputs.run_gemini == 'true'
+        id: gemini
+        if: steps.select_task.outputs.has_task == 'true' && steps.gemini_preflight.outputs.run_gemini == 'true'
         continue-on-error: false
+        timeout-minutes: 12
         uses: google-github-actions/run-gemini-cli@v0.1.22
         env:
           # GitHub runner 每次都是乾淨工作目錄；允許 headless Gemini CLI 在此 repo 內寫入。
           GEMINI_CLI_TRUST_WORKSPACE: "true"
+          GEMINI_DEBUG: "true"
         with:
           gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
           gemini_model: gemini-2.5-flash
-          prompt: >-
+          prompt: |
             讀取並完整執行 .github/prompts/daily-content-enrichment.md。
+            本次唯一指定題目：${{ steps.select_task.outputs.task }}
             這是排程任務，請直接完成工作，不要只提出建議。
+
+      - name: 顯示 Gemini 執行後狀態
+        if: always()
+        shell: bash
+        run: |
+          echo "git status --porcelain"
+          git status --porcelain
+          echo "git diff --stat"
+          git diff --stat
+
+      - name: 標記完成並提交
+        if: steps.gemini.outcome == 'success'
+        env:
+          TASK: ${{ steps.select_task.outputs.task }}
+          ROADMAP_LINE: ${{ steps.select_task.outputs.line_number }}
+          FROM_ROADMAP: ${{ steps.select_task.outputs.from_roadmap }}
+        shell: bash
+        run: |
+          if [[ -z "$(git status --porcelain)" ]]; then
+            echo "::notice::本次沒有產出內容"
+            exit 0
+          fi
+
+          if [[ "${FROM_ROADMAP}" == "true" ]]; then
+            COMPLETED_DATE="$(TZ=Asia/Tokyo date +%F)" python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          roadmap = Path("內容路線圖.md")
+          line_number = int(os.environ["ROADMAP_LINE"])
+          task = os.environ["TASK"]
+          lines = roadmap.read_text(encoding="utf-8").splitlines(keepends=True)
+          index = line_number - 1
+          expected = f"- [ ] {task}"
+          if lines[index].rstrip("\r\n") != expected:
+              raise SystemExit(f"路線圖第 {line_number} 行已變更，拒絕誤打勾")
+          line_ending = "\n" if lines[index].endswith("\n") else ""
+          lines[index] = f"- [x] {os.environ['COMPLETED_DATE']} {task}{line_ending}"
+          roadmap.write_text("".join(lines), encoding="utf-8")
+          PY
+          fi
+
+          summary="$(python3 -c 'import os; print(os.environ["TASK"][:30])')"
+          git add -A
+          git commit -m "每日內容豐富: ${summary}"
+          git push origin main
