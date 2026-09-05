@@ -1,9 +1,7 @@
 name: Saki 每日內容豐富化
 
 on:
-  schedule:
-    # 每天 01:00 UTC = 日本時間 10:00
-    - cron: "0 1 * * *"
+  # 2026-09-05：停用排程，避免 Gemini API 額度不足時持續寄送失敗通知。
   workflow_dispatch:
 
 permissions:
@@ -16,7 +14,7 @@ concurrency:
 jobs:
   enrich:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v5
         with:
@@ -28,7 +26,42 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+      - name: 檢查 Gemini API 額度
+        id: gemini_preflight
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        shell: bash
+        run: |
+          http_status="$(
+            curl --silent --show-error \
+              --connect-timeout 10 \
+              --max-time 30 \
+              --output /dev/null \
+              --write-out "%{http_code}" \
+              --request POST \
+              --header "Content-Type: application/json" \
+              --header "x-goog-api-key: ${GEMINI_API_KEY}" \
+              --data '{"contents":[{"parts":[{"text":"ping"}]}],"generationConfig":{"maxOutputTokens":1}}' \
+              "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+          )"
+
+          case "${http_status}" in
+            200)
+              echo "run_gemini=true" >> "${GITHUB_OUTPUT}"
+              ;;
+            403|429)
+              echo "::notice::Gemini 額度不足，本次跳過"
+              echo "run_gemini=false" >> "${GITHUB_OUTPUT}"
+              ;;
+            *)
+              echo "::error::Gemini preflight 失敗（HTTP ${http_status}）"
+              exit 1
+              ;;
+          esac
+
       - name: 研究並豐富今日內容
+        if: steps.gemini_preflight.outputs.run_gemini == 'true'
+        continue-on-error: false
         uses: google-github-actions/run-gemini-cli@v0.1.22
         env:
           # GitHub runner 每次都是乾淨工作目錄；允許 headless Gemini CLI 在此 repo 內寫入。

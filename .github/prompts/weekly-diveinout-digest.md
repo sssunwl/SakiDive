@@ -4,14 +4,14 @@
 
 1. 讀取最近 7 天的 git commits、`00_每日簡報/`、`01_潛水點/`、`02_課程證照/`、`03_技術裝備/`、`內容路線圖.md`。
 2. 選出最多 3 則對「泛亞洲潛旅／新手友善」最有用且已有可靠來源的內容。
-3. 更新 `docs/diveinout/weekly.json`。維持 JSON 合法，格式為：
+3. `docs/diveinout/weekly.json` 與其上層路徑已於 2026-09-03 移至獨立 repo，不可在本 repo 重建或修改。新的跨 repo 發佈流程尚未設定前，只整理候選內容並在最終訊息回報，不寫入檔案。候選資料格式為：
    `{ "week_of":"YYYY-MM-DD", "updated":"YYYY-MM-DD", "items":[{"emoji":"🪸","category":"海洋日誌","title":"","summary":"","source_name":"","source_url":""}] }`。
 4. 每一則必須有來源名稱與 URL。法規、價格、季節或安全內容須在 summary 內保留 `⚠️需覆核`；沒有可靠來源的內容不可入選。
-5. 如果本週沒有新內容，也要保留既有資料並只更新 `updated`；不可編造湊滿三則。
-6. 檢查 `git diff` 與 JSON 合法性後，以 `每週 DiveInOut 整編: <摘要>` commit，並 `git push origin main`。
+5. 如果本週沒有新內容，只在最終訊息回報沒有可用更新；不可編造湊滿三則。
+6. 檢查 `git diff` 應為空；本過渡期任務不建立 commit，也不 push。
 
 ## 邊界
 
-- 只修改 `docs/diveinout/weekly.json`。
+- 不修改本 repo 任何檔案，尤其不可重建已刪除的 `docs/diveinout/`。
 - 不修改工作流程、憑證、網站程式或其他專案檔案。
 - 一律繁體中文，短而有溫度；summary 60–110 字，不能只是標題的重複。
