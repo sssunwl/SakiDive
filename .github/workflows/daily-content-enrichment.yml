@@ -140,7 +140,9 @@ jobs:
           FROM_ROADMAP: ${{ steps.select_task.outputs.from_roadmap }}
         shell: bash
         run: |
-          if [[ -z "$(git status --porcelain)" ]]; then
+          # 只看內容路徑，避免 Gemini CLI 留下的雜物被誤認為產出。
+          CONTENT_PATHS=(01_潛水點 02_課程證照 03_技術裝備)
+          if [[ -z "$(git status --porcelain -- "${CONTENT_PATHS[@]}")" ]]; then
             echo "::notice::本次沒有產出內容"
             exit 0
           fi
@@ -165,6 +167,11 @@ jobs:
           fi
 
           summary="$(python3 -c 'import os; print(os.environ["TASK"][:30])')"
-          git add -A
+          # 明確列出路徑，不用 -A，以免 Gemini CLI 的暫存檔進版控。
+          git add -- "${CONTENT_PATHS[@]}" 內容路線圖.md
+          if git diff --cached --quiet; then
+            echo "::notice::沒有可提交的內容變更"
+            exit 0
+          fi
           git commit -m "每日內容豐富: ${summary}"
           git push origin main
