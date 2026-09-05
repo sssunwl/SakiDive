@@ -32,11 +32,12 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         shell: bash
         run: |
+          response_body="$(mktemp)"
           http_status="$(
             curl --silent --show-error \
               --connect-timeout 10 \
               --max-time 30 \
-              --output /dev/null \
+              --output "${response_body}" \
               --write-out "%{http_code}" \
               --request POST \
               --header "Content-Type: application/json" \
@@ -49,12 +50,16 @@ jobs:
             200)
               echo "run_gemini=true" >> "${GITHUB_OUTPUT}"
               ;;
-            403|429)
+            429)
               echo "::notice::Gemini 額度不足，本次跳過"
               echo "run_gemini=false" >> "${GITHUB_OUTPUT}"
               ;;
             *)
+              # 回應 body 不含金鑰，可安全印出以便診斷（403 權限、404 找不到模型、400 金鑰無效）。
               echo "::error::Gemini preflight 失敗（HTTP ${http_status}）"
+              echo "API 回應："
+              head -c 1000 "${response_body}"
+              echo
               exit 1
               ;;
           esac
