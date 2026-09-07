@@ -46,7 +46,32 @@ jobs:
           if [[ -n "${TASK_OVERRIDE}" ]]; then
             args+=(--task "${TASK_OVERRIDE}")
           fi
-          python3 _pipeline/enrich_content.py "${args[@]}"
+          set +e
+          python3 _pipeline/enrich_content.py "${args[@]}" 2>&1 | tee /tmp/enrich.log
+          code=${PIPESTATUS[0]}
+          set -e
+
+          if [[ "${code}" -eq 0 ]]; then
+            echo "status=ok" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          # 刻意不讓 job 變紅：GitHub 的失敗通知信是帳號層級設定，無法只關這條
+          # workflow。失敗改為完整留在本次執行的 Summary 與 log，不寄信。
+          echo "status=failed" >> "${GITHUB_OUTPUT}"
+          echo "::warning::每日內容豐富化失敗（exit ${code}），詳見本次執行的 Summary"
+          {
+            echo "## ❌ 每日內容豐富化失敗"
+            echo
+            echo "- 時間：$(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M') JST"
+            echo "- 退出碼：\`${code}\`"
+            echo
+            echo "### 執行輸出（末 30 行）"
+            echo '```'
+            tail -n 30 /tmp/enrich.log
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
+          exit 0
 
       - name: 顯示 Gemini 執行後狀態
         if: always()
@@ -58,7 +83,7 @@ jobs:
           git diff --stat
 
       - name: 標記完成並提交
-        if: steps.enrich_content.outcome == 'success'
+        if: steps.enrich_content.outputs.status == 'ok'
         env:
           TASK: ${{ steps.enrich_content.outputs.task }}
         shell: bash
