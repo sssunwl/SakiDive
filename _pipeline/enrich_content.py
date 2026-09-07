@@ -49,7 +49,7 @@ SYSTEM_PROMPT = """你是 Saki，DiveInOut 泛亞洲潛旅生活誌的內容作�
 你的唯一任務是針對指定題目，使用 Google 搜尋 grounding 查證後寫出一篇短篇 Markdown 正文。
 
 嚴格規則：
-1. 正文 300–600 字，使用繁體中文，語氣為泛亞洲潛旅生活風、新手友善且實用。
+1. 正文約 600–1200 字，使用繁體中文，語氣為泛亞洲潛旅生活風、新手友善且實用。
 2. 最多使用 3 個搜尋查詢，優先採用原始或官方來源；不可憑模型記憶補寫安全、醫療、法規、價格、季節或潛店資訊。
 3. 價格、季節、法規等時效資訊須標記「⚠️需覆核」。找不到可靠資料時清楚寫「未確認」，絕不編造。
 4. 涉及安全的內容必須提醒讀者依現場專業人員、環境與自身訓練做判斷。
@@ -107,7 +107,7 @@ def select_task(roadmap, override=None):
 def build_user_prompt(task, today):
     return f"""今天是 {today}。本次唯一指定題目：{task}
 
-請直接撰寫符合 system instruction 的 300–600 字 Markdown 正文。先用 Google Search grounding 查證，最多 3 個搜尋查詢；不要自行輸出來源網址或來源清單。"""
+請直接撰寫符合 system instruction 的 Markdown 正文（約 600–1200 字）。先用 Google Search grounding 查證，最多 3 個搜尋查詢；不要自行輸出來源網址或來源清單。"""
 
 
 def build_request(task, today):
@@ -406,9 +406,9 @@ def run(task_override=None, dry_run=False, db_root=DB_ROOT, key=None,
         raise RuntimeError(error)
     candidate, body = get_candidate(response)
     length = body_length(body)
-    # 指示仍是 300–600 字，但容忍少量超出，不因 610 字就讓整次執行失敗。
-    if not 280 <= length <= 700:
-        raise ValueError(f"Gemini 正文長度為 {length} 字，偏離 300–600 字過多")
+    # 指示是約 600–1200 字，區間放寬以免因字數小幅偏離就整次失敗。
+    if not 300 <= length <= 2000:
+        raise ValueError(f"Gemini 正文長度為 {length} 字，偏離 600–1200 字過多")
     sources = extract_sources(candidate, resolver)
     if not sources:
         raise ValueError("Gemini 回應沒有可用的 groundingMetadata 來源，拒絕寫檔")
