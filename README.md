@@ -64,7 +64,9 @@ launchctl list | grep sakidivedb
 
 ## GitHub 雲端排程
 
-`.github/workflows/daily-content-enrichment.yml` 會在**每天日本時間 10:00**啟動 Gemini，依 `內容路線圖.md` 研究並完成 1 個小項目、commit 後推送到 `main`。它不需要本機開機。
+> **2026-09-05 狀態：排程暫停，僅保留手動觸發。** 每日與每週 Gemini workflow 曾因 API 額度不足持續失敗；目前已加入額度 preflight，並把每日流程拆成「workflow 選題／提交、Gemini 只研究與撰寫單一 300–600 字內容」。手動煙霧測試已完成並清除測試檔，`main` 已與 `origin/main` 同步。恢復 `schedule:` 前仍需用真實研究題目驗證 12 分鐘 Gemini 上限及內容品質；每週摘要的跨 repo 發佈流程也尚未設定。
+
+`.github/workflows/daily-content-enrichment.yml` 原設計是在**每天日本時間 10:00**啟動 Gemini，依 `內容路線圖.md` 研究並完成 1 個小項目、commit 後推送到 `main`。它不需要本機開機。
 
 首次啟用前，到 GitHub repository 的 **Settings → Secrets and variables → Actions** 新增 repository secret：`GEMINI_API_KEY`。可使用現有的 Google AI Studio Gemini API key；免費額度有用量上限，因此排程刻意限制為每天一個小項目。也可在 Actions 頁手動執行 **Saki 每日內容豐富化** 測試。
 
