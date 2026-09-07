@@ -190,15 +190,24 @@ def resolve_source_url(url):
     parsed = urllib.parse.urlparse(url)
     if parsed.scheme not in ("http", "https"):
         return None
-    req = urllib.request.Request(
-        url,
-        headers={"User-Agent": UA, "Range": "bytes=0-0"},
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=12) as response:
-            resolved = response.geturl()
-    except Exception as error:
-        print(f"  ⚠️ 來源轉址解析失敗，保留 grounding URL: {error}")
+    resolved = None
+    # 有些站台擋 Range 或直接回 403，但那時轉址鏈其實已走完，
+    # HTTPError 仍帶著正確的最終網址，不能就這樣放棄。
+    for headers in ({"User-Agent": UA, "Range": "bytes=0-0"}, {"User-Agent": UA}):
+        req = urllib.request.Request(url, headers=headers)
+        try:
+            with urllib.request.urlopen(req, timeout=12) as response:
+                resolved = response.geturl()
+                break
+        except urllib.error.HTTPError as error:
+            final = error.geturl()
+            if final and "grounding-api-redirect" not in final:
+                resolved = final
+                break
+        except Exception:
+            continue
+    if not resolved:
+        print(f"  ⚠️ 來源轉址解析失敗，保留 grounding URL: {url[:60]}…")
         resolved = url
     clean = urllib.parse.urlsplit(resolved)._replace(fragment="").geturl()
     return clean
