@@ -120,7 +120,9 @@ def build_request(task, today):
         "tools": [{"google_search": {}}],
         "generationConfig": {
             "temperature": 0.3,
-            "maxOutputTokens": 1600,
+            # 2.5-flash 是 thinking 模型，思考 token 也計入此額度；
+            # 1600 會讓 600 字正文被硬生生截斷，且截斷後長度剛好通過檢查。
+            "maxOutputTokens": 8192,
         },
     }
 
@@ -154,7 +156,8 @@ def call_gemini(key, payload, retries=2):
         except (json.JSONDecodeError, UnicodeDecodeError) as error:
             return None, f"Gemini 回應不是合法 JSON: {error}"
 
-        wait = 6 * (attempt + 1)
+        # 每分鐘限制的建議等待約 60 秒，6/12 秒等於白等一輪。
+        wait = 30 * (attempt + 1)
         print(f"  …Gemini 暫時失敗，{wait}s 後重試（{attempt + 1}/{retries}）")
         time.sleep(wait)
     return None, last_error
@@ -169,6 +172,10 @@ def get_candidate(response):
         raise ValueError("Gemini 回應格式異常，可能被安全過濾或沒有候選內容")
     if not text:
         raise ValueError("Gemini 沒有回傳文字內容")
+    # 截斷的正文長度可能剛好落在合格區間，必須靠 finishReason 才擋得住。
+    finish = candidate.get("finishReason")
+    if finish and finish != "STOP":
+        raise ValueError(f"Gemini 未正常結束（finishReason={finish}），拒絕寫入不完整內容")
     return candidate, strip_code_fence(text)
 
 
@@ -399,8 +406,9 @@ def run(task_override=None, dry_run=False, db_root=DB_ROOT, key=None,
         raise RuntimeError(error)
     candidate, body = get_candidate(response)
     length = body_length(body)
-    if not 300 <= length <= 600:
-        raise ValueError(f"Gemini 正文長度為 {length} 字，不在 300–600 字範圍")
+    # 指示仍是 300–600 字，但容忍少量超出，不因 610 字就讓整次執行失敗。
+    if not 280 <= length <= 700:
+        raise ValueError(f"Gemini 正文長度為 {length} 字，偏離 300–600 字過多")
     sources = extract_sources(candidate, resolver)
     if not sources:
         raise ValueError("Gemini 回應沒有可用的 groundingMetadata 來源，拒絕寫檔")
@@ -409,6 +417,10 @@ def run(task_override=None, dry_run=False, db_root=DB_ROOT, key=None,
     path = choose_content_dir_for_root(db_root, selected.text) / filename_from_task(selected.text)
     if path.exists() and path.is_symlink():
         raise ValueError("推導出的輸出路徑是 symlink，拒絕寫入")
+    if path.exists() and not dry_run:
+        raise ValueError(
+            f"{path.name} 已存在，拒絕覆寫既有內容。"
+            "若要重寫請先人工確認並移除該檔，或改用別的題目。")
     if dry_run:
         print(f"\n===== 產出預覽（--dry-run，未寫檔）=====\n目標：{path}\n")
         print(markdown)
