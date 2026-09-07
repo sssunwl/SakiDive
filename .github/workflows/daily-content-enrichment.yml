@@ -19,8 +19,7 @@ concurrency:
 jobs:
   enrich:
     runs-on: ubuntu-latest
-    # preflight 已擋掉重試風暴，這裡放寬讓 Gemini 有時間完成研究與編輯。
-    timeout-minutes: 20
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
         with:
@@ -32,96 +31,18 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: 決定本次題目
-        id: select_task
+      - name: 研究並寫入今日內容
+        id: enrich_content
         env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           TASK_OVERRIDE: ${{ inputs.task_override }}
         shell: bash
         run: |
+          args=()
           if [[ -n "${TASK_OVERRIDE}" ]]; then
-            echo "task=${TASK_OVERRIDE}" >> "${GITHUB_OUTPUT}"
-            echo "line_number=" >> "${GITHUB_OUTPUT}"
-            echo "from_roadmap=false" >> "${GITHUB_OUTPUT}"
-            echo "has_task=true" >> "${GITHUB_OUTPUT}"
-            exit 0
+            args+=(--task "${TASK_OVERRIDE}")
           fi
-
-          python3 - <<'PY'
-          import os
-          from pathlib import Path
-
-          roadmap = Path("內容路線圖.md")
-          for line_number, line in enumerate(roadmap.read_text(encoding="utf-8").splitlines(), 1):
-              if line.startswith("- [ ] "):
-                  task = line.removeprefix("- [ ] ").strip()
-                  with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-                      output.write(f"task={task}\n")
-                      output.write(f"line_number={line_number}\n")
-                      output.write("from_roadmap=true\n")
-                      output.write("has_task=true\n")
-                  break
-          else:
-              print("::notice::內容路線圖沒有未完成項目，本次跳過")
-              with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-                  output.write("has_task=false\n")
-          PY
-
-      - name: 檢查 Gemini API 額度
-        id: gemini_preflight
-        if: steps.select_task.outputs.has_task == 'true'
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        shell: bash
-        run: |
-          response_body="$(mktemp)"
-          http_status="$(
-            curl --silent --show-error \
-              --connect-timeout 10 \
-              --max-time 30 \
-              --output "${response_body}" \
-              --write-out "%{http_code}" \
-              --request POST \
-              --header "Content-Type: application/json" \
-              --header "x-goog-api-key: ${GEMINI_API_KEY}" \
-              --data '{"contents":[{"parts":[{"text":"ping"}]}],"generationConfig":{"maxOutputTokens":1}}' \
-              "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
-          )"
-
-          case "${http_status}" in
-            200)
-              echo "run_gemini=true" >> "${GITHUB_OUTPUT}"
-              ;;
-            429)
-              echo "::notice::Gemini 額度不足，本次跳過"
-              echo "run_gemini=false" >> "${GITHUB_OUTPUT}"
-              ;;
-            *)
-              # 回應 body 不含金鑰，可安全印出以便診斷（403 權限、404 找不到模型、400 金鑰無效）。
-              echo "::error::Gemini preflight 失敗（HTTP ${http_status}）"
-              echo "API 回應："
-              head -c 1000 "${response_body}"
-              echo
-              exit 1
-              ;;
-          esac
-
-      - name: 研究並豐富今日內容
-        id: gemini
-        if: steps.select_task.outputs.has_task == 'true' && steps.gemini_preflight.outputs.run_gemini == 'true'
-        continue-on-error: false
-        timeout-minutes: 12
-        uses: google-github-actions/run-gemini-cli@v0.1.22
-        env:
-          # GitHub runner 每次都是乾淨工作目錄；允許 headless Gemini CLI 在此 repo 內寫入。
-          GEMINI_CLI_TRUST_WORKSPACE: "true"
-          GEMINI_DEBUG: "true"
-        with:
-          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
-          gemini_model: gemini-2.5-flash
-          prompt: |
-            讀取並完整執行 .github/prompts/daily-content-enrichment.md。
-            本次唯一指定題目：${{ steps.select_task.outputs.task }}
-            這是排程任務，請直接完成工作，不要只提出建議。
+          python3 _pipeline/enrich_content.py "${args[@]}"
 
       - name: 顯示 Gemini 執行後狀態
         if: always()
@@ -133,41 +54,20 @@ jobs:
           git diff --stat
 
       - name: 標記完成並提交
-        if: steps.gemini.outcome == 'success'
+        if: steps.enrich_content.outcome == 'success'
         env:
-          TASK: ${{ steps.select_task.outputs.task }}
-          ROADMAP_LINE: ${{ steps.select_task.outputs.line_number }}
-          FROM_ROADMAP: ${{ steps.select_task.outputs.from_roadmap }}
+          TASK: ${{ steps.enrich_content.outputs.task }}
         shell: bash
         run: |
-          # 只看內容路徑，避免 Gemini CLI 留下的雜物被誤認為產出。
+          # 只看內容路徑，避免暫存雜物被誤認為產出。
           CONTENT_PATHS=(01_潛水點 02_課程證照 03_技術裝備)
           if [[ -z "$(git status --porcelain -- "${CONTENT_PATHS[@]}")" ]]; then
             echo "::notice::本次沒有產出內容"
             exit 0
           fi
 
-          if [[ "${FROM_ROADMAP}" == "true" ]]; then
-            COMPLETED_DATE="$(TZ=Asia/Tokyo date +%F)" python3 - <<'PY'
-          import os
-          from pathlib import Path
-
-          roadmap = Path("內容路線圖.md")
-          line_number = int(os.environ["ROADMAP_LINE"])
-          task = os.environ["TASK"]
-          lines = roadmap.read_text(encoding="utf-8").splitlines(keepends=True)
-          index = line_number - 1
-          expected = f"- [ ] {task}"
-          if lines[index].rstrip("\r\n") != expected:
-              raise SystemExit(f"路線圖第 {line_number} 行已變更，拒絕誤打勾")
-          line_ending = "\n" if lines[index].endswith("\n") else ""
-          lines[index] = f"- [x] {os.environ['COMPLETED_DATE']} {task}{line_ending}"
-          roadmap.write_text("".join(lines), encoding="utf-8")
-          PY
-          fi
-
           summary="$(python3 -c 'import os; print(os.environ["TASK"][:30])')"
-          # 明確列出路徑，不用 -A，以免 Gemini CLI 的暫存檔進版控。
+          # 明確列出路徑，不用 -A，以免暫存檔進版控。
           git add -- "${CONTENT_PATHS[@]}" 內容路線圖.md
           if git diff --cached --quiet; then
             echo "::notice::沒有可提交的內容變更"
