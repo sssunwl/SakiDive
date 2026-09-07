@@ -406,9 +406,12 @@ def run(task_override=None, dry_run=False, db_root=DB_ROOT, key=None,
         raise RuntimeError(error)
     candidate, body = get_candidate(response)
     length = body_length(body)
-    # 指示是約 600–1200 字，區間放寬以免因字數小幅偏離就整次失敗。
-    if not 300 <= length <= 2000:
-        raise ValueError(f"Gemini 正文長度為 {length} 字，偏離 600–1200 字過多")
+    # 只擋過短(空殼或殘缺)。過長不是缺陷,模型對中文字數指示本來就不精確,
+    # 真正的守門是 finishReason 未截斷、有 grounding 來源、不覆寫既有檔。
+    if length < 300:
+        raise ValueError(f"Gemini 正文只有 {length} 字，過短，拒絕寫入")
+    if length > 2000:
+        print(f"  ⚠️ 正文 {length} 字，超出建議的 600–1200 字，仍照常寫入")
     sources = extract_sources(candidate, resolver)
     if not sources:
         raise ValueError("Gemini 回應沒有可用的 groundingMetadata 來源，拒絕寫檔")
