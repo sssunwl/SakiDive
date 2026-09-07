@@ -64,9 +64,9 @@ launchctl list | grep sakidivedb
 
 ## GitHub 雲端排程
 
-> **2026-09-07 狀態：排程仍暫停，僅保留手動觸發，等待新管線驗證。** `run-gemini-cli` 的一般寫作可在一分鐘內完成，但 Google 搜尋工具在 GitHub runner 會卡到 12 分鐘 timeout，且不產生內容檔，因此每日 workflow 已棄用該 action。現在改由純標準函式庫的 `_pipeline/enrich_content.py` 直接呼叫 Gemini `generateContent` API，以單次 `google_search` grounding request 完成搜尋與寫作，再由 workflow 提交內容與路線圖進度；沒有 agent tool loop。
+> **2026-09-07 狀態：每日排程已恢復。** `run-gemini-cli` 的一般寫作可在一分鐘內完成，但 Google 搜尋工具在 GitHub runner 會卡到 12 分鐘 timeout，且不產生內容檔，因此每日 workflow 已棄用該 action。現在改由純標準函式庫的 `_pipeline/enrich_content.py` 直接呼叫 Gemini `generateContent` API，以單次 `google_search` grounding request 完成搜尋與寫作，再由 workflow 提交內容與路線圖進度；沒有 agent tool loop。
 
-`.github/workflows/daily-content-enrichment.yml` 依 `內容路線圖.md` 一次完成 1 個約 600–1200 字項目，也可用 `task_override` 測試指定題目。工作流仍不需要本機開機，但 `schedule:` 尚未恢復；待真實題目手動驗證 API grounding、來源網址與產出品質後，再決定是否重新啟用每日排程。
+`.github/workflows/daily-content-enrichment.yml` 依 `內容路線圖.md` 一次完成 1 個約 600–1200 字項目，也可用 `task_override` 測試指定題目。工作流不需要本機開機。已於 2026-09-07 用真實題目端到端驗證通過（產出「青之洞窟深度攻略」，11 個來源），每日排程隨即恢復。每週 DiveInOut 整編仍使用 `run-gemini-cli`，排程維持停用。
 
 首次啟用前，到 GitHub repository 的 **Settings → Secrets and variables → Actions** 新增 repository secret：`GEMINI_API_KEY`。可使用現有的 Google AI Studio Gemini API key；免費額度有用量上限，因此排程刻意限制為每天一個小項目。也可在 Actions 頁手動執行 **Saki 每日內容豐富化** 測試。
 

@@ -1,7 +1,11 @@
 name: Saki 每日內容豐富化
 
 on:
-  # 2026-09-05：停用排程，避免 Gemini API 額度不足時持續寄送失敗通知。
+  schedule:
+    # 每天 01:00 UTC = 日本時間 10:00
+    # 2026-09-05 因 run-gemini-cli 搜尋工具卡死而停用，
+    # 2026-09-07 改用 _pipeline/enrich_content.py 單次 API grounding 後恢復。
+    - cron: "0 1 * * *"
   workflow_dispatch:
     inputs:
       task_override:
