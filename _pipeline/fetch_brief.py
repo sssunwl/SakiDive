@@ -232,6 +232,8 @@ def git_push(db_root, today):
         return subprocess.run(args, cwd=db_root, capture_output=True, text=True)
     run("git", "add", "-A")
     c = run("git", "commit", "-m", f"每日簡報更新 {today}")
+    # 雲端每日排程也會 push，先接上遠端再推，避免 rejected (fetch first)
+    run("git", "pull", "--rebase", "--autostash")
     p = run("git", "push")
     if p.returncode == 0:
         print("✅ 已 push 到 GitHub")

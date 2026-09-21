@@ -100,6 +100,8 @@ def select_task(roadmap, override=None):
             roadmap.read_text(encoding="utf-8").splitlines(), 1):
         if line.startswith("- [ ] "):
             task = line.removeprefix("- [ ] ").strip()
+            if task.startswith("🛠"):  # 工程任務，不是文章題目，交給人/Codex
+                continue
             return SelectedTask(task, line_number, line)
     return None
 
