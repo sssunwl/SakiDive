@@ -13,12 +13,15 @@ SakiDiveDB 潛水每日簡報抓取器
     python3 fetch_brief.py            # 抓今天,寫入 00_每日簡報/YYYY-MM-DD.md
     python3 fetch_brief.py --dry      # 只印出結果不寫檔(測試用)
     python3 fetch_brief.py --push     # 抓完後 git commit + push 到 GitHub
+    python3 fetch_brief.py --force    # 本週已有簡報也照跑(launchd 補跑時段預設會跳過)
 """
 import json, os, re, sys, time, subprocess
 import urllib.request, urllib.error, urllib.parse, datetime
 
 # ---- 設定 ----
 MODEL = "gemini-2.5-flash"
+# 主模型 503/429 撐不過就依序換備用(2026-11-02 曾因 503 整週斷掉)
+FALLBACK_MODELS = ["gemini-flash-latest", "gemini-2.5-flash-lite"]
 CRED_PATH = os.path.expanduser("~/.config/gemini/credentials.json")
 DB_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # SakiDiveDB/
 OUT_DIR = os.path.join(DB_ROOT, "00_每日簡報")
@@ -107,35 +110,61 @@ def build_prompt(today, blocks):
 """
 
 
-def call_gemini(key, prompt, retries=4):
+def call_gemini(key, prompt):
+    """主模型重試 4 次(15/45/90s),仍忙碌就換備用模型;全失敗才回錯誤。"""
+    last = "未知錯誤"
+    for model in [MODEL] + FALLBACK_MODELS:
+        text, last, busy = _call_model(key, model, prompt)
+        if text:
+            if model != MODEL:
+                print(f"  ↪ 改用備用模型 {model} 完成")
+            return text, None
+        if not busy:
+            return None, last
+        print(f"  …{model} 一直忙碌,換下一個模型")
+    return None, last
+
+
+def _call_model(key, model, prompt, waits=(15, 45, 90)):
+    """回傳 (text, err, busy);busy=True 代表是暫時性錯誤,值得換模型再試。"""
     url = (f"https://generativelanguage.googleapis.com/v1beta/models/"
-           f"{MODEL}:generateContent?key={key}")
+           f"{model}:generateContent?key={key}")
     body = json.dumps({"contents": [{"parts": [{"text": prompt}]}]}).encode()
     last = "未知錯誤"
-    for attempt in range(retries):
+    for attempt in range(len(waits) + 1):
         req = urllib.request.Request(url, data=body,
                                      headers={"Content-Type": "application/json"})
         try:
             resp = urllib.request.urlopen(req, timeout=120).read()
             d = json.loads(resp)
-            return d["candidates"][0]["content"]["parts"][0]["text"], None
+            return d["candidates"][0]["content"]["parts"][0]["text"], None, False
         except urllib.error.HTTPError as e:
-            last = f"Gemini HTTP {e.code}: {e.read().decode('utf-8','ignore')[:160]}"
-            if e.code in (429, 500, 503) and attempt < retries - 1:
-                wait = 6 * (attempt + 1)
-                print(f"  …Gemini 忙碌({e.code}),{wait}s 後重試({attempt+1}/{retries})")
-                time.sleep(wait)
-                continue
-            return None, last
+            last = f"Gemini HTTP {e.code}({model}): {e.read().decode('utf-8','ignore')[:160]}"
+            if e.code not in (429, 500, 502, 503, 504):
+                return None, last, False
         except (KeyError, IndexError):
-            return None, "Gemini 回應格式異常(可能被安全過濾或空回應)"
+            return None, "Gemini 回應格式異常(可能被安全過濾或空回應)", False
         except Exception as e:
-            last = f"Gemini 呼叫失敗: {e}"
-            if attempt < retries - 1:
-                time.sleep(6 * (attempt + 1))
-                continue
-            return None, last
-    return None, last
+            last = f"Gemini 呼叫失敗({model}): {e}"
+        if attempt < len(waits):
+            print(f"  …{model} 暫時失敗,{waits[attempt]}s 後重試({attempt+1}/{len(waits)})")
+            time.sleep(waits[attempt])
+    return None, last, True
+
+
+def already_done_this_week(out_dir, today):
+    """本週(週一起算)已有簡報就不重跑——讓 launchd 多個補跑時段安全疊加。"""
+    monday = today - datetime.timedelta(days=today.weekday())
+    if not os.path.isdir(out_dir):
+        return None
+    for f in os.listdir(out_dir):
+        try:
+            d = datetime.date.fromisoformat(f[:-3]) if f.endswith(".md") else None
+        except ValueError:
+            continue
+        if d and monday <= d <= today:
+            return f
+    return None
 
 
 def fix_source_urls(md, sources):
@@ -244,7 +273,13 @@ def git_push(db_root, today):
 def main():
     dry = "--dry" in sys.argv
     push = "--push" in sys.argv
-    today = datetime.date.today().isoformat()
+    today_d = datetime.date.today()
+    today = today_d.isoformat()
+    print(f"\n===== {datetime.datetime.now():%Y-%m-%d %H:%M} =====")
+    done = already_done_this_week(OUT_DIR, today_d)
+    if done and not dry and "--force" not in sys.argv:
+        print(f"⏭ 本週已有簡報 {done},跳過(要重跑加 --force)")
+        return
     key = load_key()
 
     blocks, notes = [], []
