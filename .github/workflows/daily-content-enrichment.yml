@@ -23,7 +23,7 @@ concurrency:
 jobs:
   enrich:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
         with:
@@ -39,6 +39,7 @@ jobs:
         id: enrich_content
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          DISCORD_WEBHOOK_SAKI: ${{ secrets.DISCORD_WEBHOOK_SAKI }}
           TASK_OVERRIDE: ${{ inputs.task_override }}
         shell: bash
         run: |

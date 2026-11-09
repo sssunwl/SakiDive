@@ -45,17 +45,33 @@ JST = datetime.timezone(datetime.timedelta(hours=9))
 UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
       "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36")
 
+BANNED_PHRASES = (
+    "至關重要", "不容錯過", "讓我們一起", "總而言之", "總之", "值得一提的是",
+    r"在這個.*的時代", "無論您是", "宛如", "彷彿置身", "夢幻般", "絕佳", "一站式",
+    "深入探討", r"揭開.*面紗", r"不僅.*更是", "賦能", "打造", r"開啟.*之旅",
+    "潛水愛好者們", "親愛的", "您",
+)
+CATEGORIES = {"spot", "beginner", "gear", "safety", "ocean", "course", "life"}
+BLOCKED_DOMAINS = ("facebook.com", "reddit.com", "instagram.com", "youtube.com")
+
+
+def banned_matches(body):
+    return [pattern for pattern in BANNED_PHRASES if re.search(pattern, body)]
+
+
 SYSTEM_PROMPT = """你是 Saki，DiveInOut 泛亞洲潛旅生活誌的內容作者。
 你的唯一任務是針對指定題目，使用 Google 搜尋 grounding 查證後寫出一篇短篇 Markdown 正文。
 
 嚴格規則：
-1. 正文約 600–1200 字，使用繁體中文，語氣為泛亞洲潛旅生活風、新手友善且實用。
+1. 正文約 800–1400 字，使用繁體中文，語氣為泛亞洲潛旅生活風、新手友善且實用。
 2. 最多使用 3 個搜尋查詢，優先採用原始或官方來源；不可憑模型記憶補寫安全、醫療、法規、價格、季節或潛店資訊。
 3. 價格、季節、法規等時效資訊須標記「⚠️需覆核」。找不到可靠資料時清楚寫「未確認」，絕不編造。
 4. 涉及安全的內容必須提醒讀者依現場專業人員、環境與自身訓練做判斷。
 5. 只輸出文章正文，不要輸出檔名、來源清單、URL、前言、說明或 Markdown code fence。來源連結與抓取日會由程式依 groundingMetadata 加入。
-6. 完成這一篇就停止，不延伸成其他題目，也不提出後續任務。
+6. 使用「你」，不要使用「您」，並避開下列所有禁用詞語與句型。
+7. 完成這一篇就停止，不延伸成其他題目，也不提出後續任務。
 """
+SYSTEM_PROMPT += "\n禁用詞語／正規表示式：" + "、".join(BANNED_PHRASES)
 
 
 @dataclass(frozen=True)
@@ -63,6 +79,9 @@ class SelectedTask:
     text: str
     line_number: Optional[int]
     original_line: Optional[str]
+    slug: str = ""
+    category: str = ""
+    spots: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -88,13 +107,43 @@ def write_github_output(name, value):
         output.write(f"{name}<<{marker}\n{value}\n{marker}\n")
 
 
+def parse_task(text, line_number=None, original_line=None):
+    if "｜" not in text:
+        return SelectedTask(text, line_number, original_line)
+    parts = text.split("｜", 3)
+    if len(parts) != 4:
+        raise ValueError("新格式題目必須有 slug｜分類｜spots｜題目")
+    slug, category, spots, title = (part.strip() for part in parts)
+    if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", slug) or category not in CATEGORIES or not title:
+        raise ValueError("路線圖 slug、分類或題目不合法")
+    ids = tuple(item.strip() for item in spots.split(",") if item.strip())
+    if any(not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", item) for item in ids):
+        raise ValueError("潛點 id 不合法")
+    return SelectedTask(title, line_number, original_line, slug, category, ids)
+
+
+def pending_tasks(roadmap):
+    return [line for line in roadmap.read_text(encoding="utf-8").splitlines()
+            if line.startswith("- [ ] ") and not line[6:].strip().startswith("🛠")]
+
+
+def notify_queue(message):
+    summary = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary:
+        with open(summary, "a", encoding="utf-8") as output:
+            output.write(message + "\n")
+    if os.environ.get("DISCORD_WEBHOOK_SAKI"):
+        from _discord import notify_discord
+        notify_discord(message)
+
+
 def select_task(roadmap, override=None):
     """回傳 override，或路線圖第一個未完成項目及其精確位置。"""
     if override is not None:
         task = override.strip()
         if not task:
             raise ValueError("--task 不可為空白")
-        return SelectedTask(task, None, None)
+        return parse_task(task)
 
     for line_number, line in enumerate(
             roadmap.read_text(encoding="utf-8").splitlines(), 1):
@@ -102,14 +151,14 @@ def select_task(roadmap, override=None):
             task = line.removeprefix("- [ ] ").strip()
             if task.startswith("🛠"):  # 工程任務，不是文章題目，交給人/Codex
                 continue
-            return SelectedTask(task, line_number, line)
+            return parse_task(task, line_number, line)
     return None
 
 
 def build_user_prompt(task, today):
     return f"""今天是 {today}。本次唯一指定題目：{task}
 
-請直接撰寫符合 system instruction 的 Markdown 正文（約 600–1200 字）。先用 Google Search grounding 查證，最多 3 個搜尋查詢；不要自行輸出來源網址或來源清單。"""
+請直接撰寫符合 system instruction 的 Markdown 正文（約 800–1400 字）。先用 Google Search grounding 查證，最多 3 個搜尋查詢；不要自行輸出來源網址或來源清單。"""
 
 
 def build_request(task, today):
@@ -129,39 +178,31 @@ def build_request(task, today):
     }
 
 
-def call_gemini(key, payload, retries=2):
-    """單次 API request 最長 120 秒；暫時性失敗最多再試 2 次。"""
+def call_gemini(key, payload, retries=3):
+    """單次 API request 最長 120 秒；各模型暫時性失敗最多再試 3 次。"""
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     last_error = "未知錯誤"
-    for attempt in range(retries + 1):
-        req = urllib.request.Request(
-            API_URL,
-            data=body,
-            headers={
-                "Content-Type": "application/json",
-                "x-goog-api-key": key,
-            },
-        )
-        try:
-            with urllib.request.urlopen(req, timeout=120) as response:
-                return json.loads(response.read()), None
-        except urllib.error.HTTPError as error:
-            detail = error.read().decode("utf-8", "ignore")[:500]
-            last_error = f"Gemini HTTP {error.code}: {detail}"
-            retryable = error.code in (429, 500, 502, 503, 504)
-            if not retryable or attempt >= retries:
-                return None, last_error
-        except (urllib.error.URLError, TimeoutError, OSError) as error:
-            last_error = f"Gemini 呼叫失敗: {error}"
-            if attempt >= retries:
-                return None, last_error
-        except (json.JSONDecodeError, UnicodeDecodeError) as error:
-            return None, f"Gemini 回應不是合法 JSON: {error}"
-
-        # 每分鐘限制的建議等待約 60 秒，6/12 秒等於白等一輪。
-        wait = 30 * (attempt + 1)
-        print(f"  …Gemini 暫時失敗，{wait}s 後重試（{attempt + 1}/{retries}）")
-        time.sleep(wait)
+    for model in (MODEL, "gemini-flash-latest", "gemini-2.5-flash-lite"):
+        for attempt in range(retries + 1):
+            req = urllib.request.Request(
+                f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+                data=body, headers={"Content-Type": "application/json", "x-goog-api-key": key})
+            try:
+                with urllib.request.urlopen(req, timeout=120) as response:
+                    return json.loads(response.read()), None
+            except urllib.error.HTTPError as error:
+                last_error = f"Gemini HTTP {error.code}: {error.read().decode('utf-8', 'ignore')[:500]}"
+                if error.code not in (429, 500, 502, 503, 504):
+                    return None, last_error
+            except (urllib.error.URLError, TimeoutError, OSError) as error:
+                last_error = f"Gemini 呼叫失敗: {error}"
+            except (json.JSONDecodeError, UnicodeDecodeError) as error:
+                return None, f"Gemini 回應不是合法 JSON: {error}"
+            if attempt < retries:
+                wait = (15, 45, 90)[min(attempt, 2)]
+                print(f"  …{model} 暫時失敗，{wait}s 後重試")
+                time.sleep(wait)
+        print(f"  ⚠️ {model} 重試耗盡，嘗試下一模型")
     return None, last_error
 
 
@@ -237,8 +278,10 @@ def extract_sources(candidate, resolver=resolve_source_url):
         raw_url = web.get("uri")
         if not raw_url:
             continue
+        if blocked_source(raw_url):
+            continue
         url = resolver(raw_url)
-        if not url:
+        if not url or blocked_source(url):
             continue
         title = html.unescape((web.get("title") or "").strip())
         if not title:
@@ -283,12 +326,15 @@ def insert_grounding_citations(markdown, candidate, sources, today):
 
     for end, cited in sorted(insertions.items(), reverse=True):
         if cited:
-            links = " ".join(
-                f"[來源 {number}]({sources[number - 1].url})" for number in cited
-            )
-            citation = f" {links}（抓取：{today}）"
+            superscript = str.maketrans("0123456789", "⁰¹²³⁴⁵⁶⁷⁸⁹")
+            citation = " ".join(f"[{str(number).translate(superscript)}](#src-{number})" for number in cited)
             markdown = markdown[:end] + citation + markdown[end:]
     return markdown
+
+
+def blocked_source(url):
+    host = (urllib.parse.urlparse(url).hostname or "").casefold().rstrip(".")
+    return any(host == domain or host.endswith("." + domain) for domain in BLOCKED_DOMAINS)
 
 
 def normalized_host(url):
@@ -366,7 +412,8 @@ def mark_task_complete(roadmap, selected, today):
     if not 0 <= index < len(lines) or lines[index].rstrip("\r\n") != selected.original_line:
         raise ValueError(f"路線圖第 {selected.line_number} 行已變更，拒絕誤打勾")
     ending = "\n" if lines[index].endswith("\n") else ""
-    lines[index] = f"- [x] {today} {selected.text}{ending}"
+    original = selected.original_line.removeprefix("- [ ] ")
+    lines[index] = f"- [x] {today} {original}{ending}"
     atomic_write(roadmap, "".join(lines))
     return True
 
@@ -393,11 +440,24 @@ def render_markdown(task, body, candidate, sources, today):
     return f"# {task}\n\n{body}\n\n## 來源\n\n" + "\n".join(source_lines) + "\n"
 
 
+def frontmatter(selected, body, today):
+    category = selected.category or {"01_潛水點": "spot", "02_課程證照": "course", "03_技術裝備": "gear"}[choose_content_dir(selected.text).name]
+    paragraph = next((part.strip() for part in body.split("\n\n") if part.strip() and not part.lstrip().startswith(("#", "-", "*", ">"))), "")
+    summary = re.sub(r"\s+", " ", paragraph)[:80]
+    data = {"title": selected.text, "slug": selected.slug or Path(filename_from_task(selected.text)).stem,
+            "category": category, "spots": list(selected.spots), "date": today,
+            "summary": summary, "words": body_length(body)}
+    return "---\n" + "\n".join(f"{key}: {json.dumps(value, ensure_ascii=False)}" for key, value in data.items()) + "\n---\n\n"
+
+
 def run(task_override=None, dry_run=False, db_root=DB_ROOT, key=None,
         api_caller=call_gemini, resolver=resolve_source_url):
     roadmap = db_root / "內容路線圖.md"
     selected = select_task(roadmap, task_override)
+    if task_override is None and 0 < len(pending_tasks(roadmap)) <= 7:
+        notify_queue(f"⚠️ 路線圖剩 {len(pending_tasks(roadmap))} 題，請補題")
     if selected is None:
+        notify_queue("⚠️ 路線圖已空,請補題")
         print("::notice::內容路線圖沒有未完成項目，本次跳過")
         write_github_output("has_task", "false")
         write_github_output("wrote_content", "false")
@@ -412,23 +472,40 @@ def run(task_override=None, dry_run=False, db_root=DB_ROOT, key=None,
     key = key or os.environ.get("GEMINI_API_KEY")
     if not key:
         raise RuntimeError("缺少 GEMINI_API_KEY 環境變數")
-    response, error = api_caller(key, build_request(selected.text, today))
-    if error:
-        raise RuntimeError(error)
-    candidate, body = get_candidate(response)
-    length = body_length(body)
-    # 只擋過短(空殼或殘缺)。過長不是缺陷,模型對中文字數指示本來就不精確,
-    # 真正的守門是 finishReason 未截斷、有 grounding 來源、不覆寫既有檔。
-    if length < 300:
-        raise ValueError(f"Gemini 正文只有 {length} 字，過短，拒絕寫入")
-    if length > 2000:
-        print(f"  ⚠️ 正文 {length} 字，超出建議的 600–1200 字，仍照常寫入")
+    payload = build_request(selected.text, today)
+    for attempt in range(2):
+        response, error = api_caller(key, payload)
+        if error:
+            raise RuntimeError(error)
+        candidate, body = get_candidate(response)
+        length = body_length(body)
+        banned = banned_matches(body)
+        if not banned and 800 <= length <= 1600:
+            break
+        if attempt == 1:
+            if banned:
+                raise ValueError("重寫後仍有禁用詞：" + "、".join(banned))
+            if length < 800:
+                raise ValueError(f"重寫後正文只有 {length} 字，少於 800，拒絕寫入")
+            print(f"::warning::重寫後正文仍有 {length} 字，超過 1600，照寫")
+            break
+        problems = []
+        if banned:
+            problems.append("禁用詞：" + "、".join(banned))
+        if length < 800:
+            problems.append(f"正文只有 {length} 字，太短")
+        elif length > 1600:
+            problems.append(f"正文 {length} 字，太長")
+        reasons = "；".join(problems)
+        payload["contents"].extend([
+            {"role": "model", "parts": [{"text": body}]},
+            {"role": "user", "parts": [{"text": f"請完整重寫一次，800–1400 字。修正：{reasons}"}]}])
     sources = extract_sources(candidate, resolver)
     if not sources:
         raise ValueError("Gemini 回應沒有可用的 groundingMetadata 來源，拒絕寫檔")
-    markdown = render_markdown(selected.text, body, candidate, sources, today)
+    markdown = frontmatter(selected, body, today) + render_markdown(selected.text, body, candidate, sources, today)
 
-    path = choose_content_dir_for_root(db_root, selected.text) / filename_from_task(selected.text)
+    path = choose_content_dir_for_root(db_root, selected.text) / ((selected.slug + ".md") if selected.slug else filename_from_task(selected.text))
     if path.exists() and path.is_symlink():
         raise ValueError("推導出的輸出路徑是 symlink，拒絕寫入")
     if path.exists() and not dry_run:
