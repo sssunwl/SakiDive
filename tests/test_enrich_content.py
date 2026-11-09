@@ -156,7 +156,7 @@ class EnrichTests(unittest.TestCase):
             result, error = e.call_gemini('fake', e.build_request('測試', '2026-11-09'))
         self.assertIsNone(error)
         self.assertIn('gemini-flash-latest', calls[4][0])
-        self.assertIn('gemini-2.5-flash-lite', calls[-1][0])
+        self.assertIn('gemini-flash-lite-latest', calls[-1][0])
         self.assertEqual(len({body for _, body in calls}), 1)
 
     def test_empty_queue_summary(self):
