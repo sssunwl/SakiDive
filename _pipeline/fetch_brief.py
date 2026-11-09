@@ -21,7 +21,7 @@ import urllib.request, urllib.error, urllib.parse, datetime
 # ---- 設定 ----
 MODEL = "gemini-2.5-flash"
 # 主模型 503/429 撐不過就依序換備用(2026-11-02 曾因 503 整週斷掉)
-FALLBACK_MODELS = ["gemini-flash-latest", "gemini-2.5-flash-lite"]
+FALLBACK_MODELS = ["gemini-flash-latest", "gemini-flash-lite-latest"]
 CRED_PATH = os.path.expanduser("~/.config/gemini/credentials.json")
 DB_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # SakiDiveDB/
 OUT_DIR = os.path.join(DB_ROOT, "00_每日簡報")

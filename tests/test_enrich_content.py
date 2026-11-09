@@ -85,6 +85,14 @@ class EnrichTests(unittest.TestCase):
             self.run_mock('海' * 799, '海' * 700)
         self.assertNotIn('[x]', self.roadmap.read_text())
 
+    def test_rewrite_without_grounding_reuses_first_sources(self):
+        bare = {'candidates': [{'content': {'parts': [{'text': '海' * 1200}]}, 'finishReason': 'STOP'}]}
+        caller = Mock(side_effect=[(response('海' * 2000), None), (bare, None)])
+        path = e.run(db_root=self.root, key='fake', api_caller=caller, resolver=lambda x: x)
+        text = path.read_text()
+        self.assertIn('https://example.org/info', text)
+        self.assertNotIn('#src-', text)
+
     def test_short_first_attempt_rewritten(self):
         path, caller = self.run_mock('海' * 500, '海' * 1000)
         self.assertEqual(caller.call_count, 2)

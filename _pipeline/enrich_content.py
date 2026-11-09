@@ -182,7 +182,7 @@ def call_gemini(key, payload, retries=3):
     """單次 API request 最長 120 秒；各模型暫時性失敗最多再試 3 次。"""
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     last_error = "未知錯誤"
-    for model in (MODEL, "gemini-flash-latest", "gemini-2.5-flash-lite"):
+    for model in (MODEL, "gemini-flash-latest", "gemini-flash-lite-latest"):
         for attempt in range(retries + 1):
             req = urllib.request.Request(
                 f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
@@ -473,11 +473,13 @@ def run(task_override=None, dry_run=False, db_root=DB_ROOT, key=None,
     if not key:
         raise RuntimeError("缺少 GEMINI_API_KEY 環境變數")
     payload = build_request(selected.text, today)
+    first_candidate = None
     for attempt in range(2):
         response, error = api_caller(key, payload)
         if error:
             raise RuntimeError(error)
         candidate, body = get_candidate(response)
+        first_candidate = first_candidate or candidate
         length = body_length(body)
         banned = banned_matches(body)
         if not banned and 800 <= length <= 1600:
@@ -499,11 +501,16 @@ def run(task_override=None, dry_run=False, db_root=DB_ROOT, key=None,
         reasons = "；".join(problems)
         payload["contents"].extend([
             {"role": "model", "parts": [{"text": body}]},
-            {"role": "user", "parts": [{"text": f"請完整重寫一次，800–1400 字。修正：{reasons}"}]}])
+            {"role": "user", "parts": [{"text": f"請用 Google 搜尋重新查證後，完整重寫一次，800–1400 字。修正：{reasons}"}]}])
     sources = extract_sources(candidate, resolver)
+    cite_from = candidate
+    if not sources and candidate is not first_candidate:
+        # 重寫時模型常不再搜尋、沒有 grounding;改用第一次查到的來源,只列文末不插上標
+        sources = extract_sources(first_candidate, resolver)
+        cite_from = {}
     if not sources:
         raise ValueError("Gemini 回應沒有可用的 groundingMetadata 來源，拒絕寫檔")
-    markdown = frontmatter(selected, body, today) + render_markdown(selected.text, body, candidate, sources, today)
+    markdown = frontmatter(selected, body, today) + render_markdown(selected.text, body, cite_from, sources, today)
 
     path = choose_content_dir_for_root(db_root, selected.text) / ((selected.slug + ".md") if selected.slug else filename_from_task(selected.text))
     if path.exists() and path.is_symlink():
