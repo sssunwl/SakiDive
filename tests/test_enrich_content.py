@@ -159,6 +159,22 @@ class EnrichTests(unittest.TestCase):
         self.assertIn('gemini-flash-lite-latest', calls[-1][0])
         self.assertEqual(len({body for _, body in calls}), 1)
 
+    def test_daily_quota_skips_to_next_model_without_retry(self):
+        calls = []
+        def fake(req, timeout):
+            calls.append(req.full_url)
+            if len(calls) == 1:
+                raise urllib.error.HTTPError(req.full_url, 429, 'quota', {}, io.BytesIO(b'{"quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier"}'))
+            result = Mock(); result.read.return_value = json.dumps(response()).encode()
+            result.__enter__ = Mock(return_value=result); result.__exit__ = Mock(return_value=False)
+            return result
+        with patch.object(e.urllib.request, 'urlopen', side_effect=fake), patch.object(e.time, 'sleep') as sleep:
+            result, error = e.call_gemini('fake', e.build_request('測試', '2026-11-09'))
+        self.assertIsNone(error)
+        self.assertEqual(len(calls), 2)
+        self.assertIn('gemini-flash-latest', calls[1])
+        sleep.assert_not_called()
+
     def test_empty_queue_summary(self):
         self.notify.stop()
         self.roadmap.write_text('- [ ] 🛠 工程\n')

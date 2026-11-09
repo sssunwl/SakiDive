@@ -139,9 +139,12 @@ def _call_model(key, model, prompt, waits=(15, 45, 90)):
             d = json.loads(resp)
             return d["candidates"][0]["content"]["parts"][0]["text"], None, False
         except urllib.error.HTTPError as e:
-            last = f"Gemini HTTP {e.code}({model}): {e.read().decode('utf-8','ignore')[:160]}"
+            detail = e.read().decode('utf-8', 'ignore')
+            last = f"Gemini HTTP {e.code}({model}): {detail[:160]}"
             if e.code not in (429, 500, 502, 503, 504):
                 return None, last, False
+            if e.code == 429 and "PerDay" in detail:  # 每日額度用完,重試無用,換模型
+                return None, last, True
         except (KeyError, IndexError):
             return None, "Gemini 回應格式異常(可能被安全過濾或空回應)", False
         except Exception as e:

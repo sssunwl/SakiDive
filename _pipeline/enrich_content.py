@@ -191,9 +191,14 @@ def call_gemini(key, payload, retries=3):
                 with urllib.request.urlopen(req, timeout=120) as response:
                     return json.loads(response.read()), None
             except urllib.error.HTTPError as error:
-                last_error = f"Gemini HTTP {error.code}: {error.read().decode('utf-8', 'ignore')[:500]}"
+                detail = error.read().decode('utf-8', 'ignore')
+                last_error = f"Gemini HTTP {error.code}: {detail[:500]}"
                 if error.code not in (429, 500, 502, 503, 504):
                     return None, last_error
+                if error.code == 429 and "PerDay" in detail:
+                    # 免費層每模型每天 20 次,用完重試也沒用,直接換下一個模型
+                    print(f"  ⚠️ {model} 今日額度已用完，換下一模型")
+                    break
             except (urllib.error.URLError, TimeoutError, OSError) as error:
                 last_error = f"Gemini 呼叫失敗: {error}"
             except (json.JSONDecodeError, UnicodeDecodeError) as error:
